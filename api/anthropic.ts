@@ -17,6 +17,9 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   const data = await upstream.text();
+  if (!upstream.ok) {
+    console.error(`Anthropic API error ${upstream.status}:`, data);
+  }
   return new Response(data, {
     status: upstream.status,
     headers: { 'Content-Type': 'application/json' },
