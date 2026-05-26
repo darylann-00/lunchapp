@@ -40,8 +40,8 @@ export function useAI() {
   );
 
   const generateGrocery = useAICall(
-    (plan: WeeklyPlan, kid: Kid, prefs: ParentPrefs) =>
-      ai.generateGroceryList(plan, kid, prefs)
+    (plans: WeeklyPlan[], kid: Kid, prefs: ParentPrefs) =>
+      ai.generateGroceryList(plans, kid, prefs)
   );
 
   const regenerateDish = useAICall(
@@ -50,25 +50,17 @@ export function useAI() {
       parentPrefs: ParentPrefs;
       sessionNotes: string;
       day: string;
-      mealType: 'main' | 'snack';
+      mealType: 'lunch' | 'snack';
       currentDish: Dish;
       userNote: string;
       otherDishesThisWeek: Dish[];
     }) => ai.regenerateDish(args)
   );
 
-  return {
-    parseNotes,
-    generatePlan,
-    generateGrocery,
-    regenerateDish,
-    // expose per-item loading map for review screen
-    itemLoading: {} as Record<string, boolean>,
-  };
+  return { parseNotes, generatePlan, generateGrocery, regenerateDish };
 }
 
-// Separate hook for per-item loading state on review screen
-export function useItemRegenerate(planItems: LunchItem[]) {
+export function useItemRegenerate(_planItems: LunchItem[]) {
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
 
@@ -90,5 +82,5 @@ export function useItemRegenerate(planItems: LunchItem[]) {
     }
   };
 
-  return { loadingIds, errorIds, regenerate, planItems };
+  return { loadingIds, errorIds, regenerate };
 }
