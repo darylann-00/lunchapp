@@ -86,7 +86,6 @@ Use the day checkboxes provided as the source of truth for daysNeeded — only o
 Kid: ${kid.name}, age ${kid.age}
 Parent's notes: ${notes || '(none)'}`,
       },
-      { role: 'assistant' as const, content: '{' },
     ],
   });
 
@@ -146,7 +145,6 @@ This week's context:
 - Prep time: ${session.prepTimeAvailable}
 - Notes: ${session.specialNotes || 'none'}`,
       },
-      { role: 'assistant' as const, content: '{' },
     ],
   });
 
@@ -204,7 +202,6 @@ Output ONLY a valid JSON array, no preamble, no markdown:
 Plan:
 ${JSON.stringify(plan.items, null, 2)}`,
       },
-      { role: 'assistant' as const, content: '[' },
     ],
   });
 
@@ -255,7 +252,6 @@ This week's session notes: ${sessionNotes || 'none'}
 Other dishes already in the plan this week:
 ${JSON.stringify(otherDishesThisWeek, null, 2)}`,
       },
-      { role: 'assistant' as const, content: '{' },
     ],
   });
 
