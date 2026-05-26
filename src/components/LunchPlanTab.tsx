@@ -28,7 +28,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
         <span className="text-5xl">🍱</span>
         <div className="text-center">
           <p className="font-fredoka text-base font-bold text-moku-dark">No plan for this week</p>
-          <p className="text-xs text-slate-500 mt-1">Tap the button below to generate one with BentoBot!</p>
+          <p className="text-sm text-slate-500 mt-1">Tap the button below to generate one with BentoBot!</p>
         </div>
         <button
           onClick={onGenerateClick}
@@ -48,7 +48,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
       <div className="bg-white moku-border rounded-3xl moku-shadow overflow-hidden">
         <table className="w-full border-collapse table-fixed">
           <thead>
-            <tr className="bg-moku-blue text-white font-fredoka text-[9.5px] tracking-wider border-b-[3px] border-moku-dark select-none">
+            <tr className="bg-moku-blue text-white font-fredoka text-xs tracking-wider border-b-[3px] border-moku-dark select-none">
               <th className="p-2 border-r-[3px] border-moku-dark w-[22%] text-center font-bold">DAY</th>
               <th className="p-2 border-r-[3px] border-moku-dark w-[39%] text-left font-bold">🍱 LUNCH</th>
               <th className="p-2 w-[39%] text-left font-bold">🍎 SNACKS</th>
@@ -69,7 +69,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
                   {/* Day badge */}
                   <td className="p-2 border-r-[2.5px] border-moku-dark/20 text-center align-middle select-none">
                     <span
-                      className={`${theme.badge} text-white font-fredoka font-bold text-[9px] px-2 py-1 rounded-xl border-2 border-moku-dark block moku-shadow-sm -rotate-2`}
+                      className={`${theme.badge} text-white font-fredoka font-bold text-xs px-2 py-1 rounded-xl border-2 border-moku-dark block moku-shadow-sm -rotate-2`}
                     >
                       {day.slice(0, 3).toUpperCase()}
                     </span>
@@ -82,17 +82,17 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
                   >
                     {item && item.lunches.length > 0 ? (
                       <div>
-                        <span className="font-fredoka text-[12.5px] text-moku-dark font-semibold leading-tight group-hover:text-moku-coral transition-colors line-clamp-2">
+                        <span className="font-fredoka text-sm text-moku-dark font-semibold leading-tight group-hover:text-moku-coral transition-colors line-clamp-2">
                           {item.lunches[0].name}
                         </span>
                         {item.lunches.length > 1 && (
-                          <span className="text-[9px] text-moku-blue font-semibold block mt-0.5">
+                          <span className="text-xs text-moku-blue font-semibold block mt-0.5">
                             +{item.lunches.length - 1} more
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-300 italic">—</span>
+                      <span className="text-xs text-slate-300 italic">—</span>
                     )}
                   </td>
 
@@ -103,17 +103,17 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
                   >
                     {item && item.snacks.length > 0 ? (
                       <div>
-                        <span className="font-fredoka text-[12.5px] text-moku-dark font-semibold leading-tight group-hover:text-moku-peach transition-colors line-clamp-2">
+                        <span className="font-fredoka text-sm text-moku-dark font-semibold leading-tight group-hover:text-moku-peach transition-colors line-clamp-2">
                           {item.snacks[0].name}
                         </span>
                         {item.snacks.length > 1 && (
-                          <span className="text-[9px] text-moku-blue font-semibold block mt-0.5">
+                          <span className="text-xs text-moku-blue font-semibold block mt-0.5">
                             +{item.snacks.length - 1} more
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-300 italic">—</span>
+                      <span className="text-xs text-slate-300 italic">—</span>
                     )}
                   </td>
                 </tr>
@@ -123,14 +123,14 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
         </table>
       </div>
 
-      <p className="text-[8.5px] text-center text-slate-400 font-medium tracking-wide select-none">
+      <p className="text-xs text-center text-slate-400 font-medium tracking-wide select-none">
         💡 Tap any row to edit lunches or snacks for that day
       </p>
 
       <div className="bg-moku-blue/10 border-2 border-dashed border-moku-blue rounded-2xl p-3 flex items-center justify-between gap-3">
         <div className="flex-1">
-          <h4 className="font-fredoka text-xs font-bold text-moku-dark">Want to customize this week?</h4>
-          <p className="text-[10px] text-slate-500 leading-tight mt-0.5">
+          <h4 className="font-fredoka text-sm font-bold text-moku-dark">Want to customize this week?</h4>
+          <p className="text-xs text-slate-500 leading-tight mt-0.5">
             Tap ✨ New Plan below to regenerate with BentoBot.
           </p>
         </div>

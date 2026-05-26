@@ -76,7 +76,7 @@ function BentoShell() {
       <div className="w-full max-w-md h-[92vh] sm:h-[820px] bg-moku-beige flex flex-col relative shadow-2xl moku-border rounded-[32px] overflow-hidden">
 
         {/* Announcement strip */}
-        <div className="bg-moku-coral text-white font-fredoka font-bold text-[10px] py-1.5 px-3 text-center tracking-wider border-b-2 border-moku-dark relative z-30 select-none">
+        <div className="bg-moku-coral text-white font-fredoka font-bold text-xs py-1.5 px-3 text-center tracking-wider border-b-2 border-moku-dark relative z-30 select-none">
           🌈 AI LUNCH BOX ASSISTANT FOR KIDS
         </div>
 
@@ -100,7 +100,7 @@ function BentoShell() {
                   BentoBot!
                 </h1>
                 {kid && (
-                  <span className="text-[9px] font-fredoka text-moku-dark bg-white/95 px-2 py-0.5 rounded-full inline-block font-semibold">
+                  <span className="text-xs font-fredoka text-moku-dark bg-white/95 px-2 py-0.5 rounded-full inline-block font-semibold">
                     👧 {kid.name}
                   </span>
                 )}
@@ -117,10 +117,10 @@ function BentoShell() {
                   ‹
                 </button>
                 <div className="text-center min-w-[90px]">
-                  <p className="text-[8px] font-fredoka font-bold text-moku-coral uppercase tracking-wider leading-none">
+                  <p className="text-[10px] font-fredoka font-bold text-moku-coral uppercase tracking-wider leading-none">
                     {weekRelativeLabel(weekStart)}
                   </p>
-                  <p className="font-fredoka text-[11px] font-bold text-white leading-tight">
+                  <p className="font-fredoka text-xs font-bold text-white leading-tight">
                     {formatWeekRange(weekStart)}
                   </p>
                 </div>
@@ -169,7 +169,7 @@ function BentoShell() {
         {activeTab === 'lunch' && (
           <button
             onClick={() => setWizardOpen(true)}
-            className={`absolute bottom-20 right-4 z-30 bg-moku-yellow text-moku-dark moku-border rounded-full px-4 py-3 moku-shadow moku-press flex items-center gap-2 font-fredoka text-xs font-bold hover:bg-amber-400 ${fabBounce ? 'animate-bounce' : ''}`}
+            className={`absolute bottom-20 right-4 z-30 bg-moku-yellow text-moku-dark moku-border rounded-full px-4 py-3 moku-shadow moku-press flex items-center gap-2 font-fredoka text-sm font-bold hover:bg-amber-400 ${fabBounce ? 'animate-bounce' : ''}`}
           >
             <span>✨</span>
             <span>New Plan</span>
@@ -189,7 +189,7 @@ function BentoShell() {
               }`}
             >
               <span className="text-lg">{icon}</span>
-              <span className="text-[9px] font-fredoka font-bold tracking-wide">{label}</span>
+              <span className="text-xs font-fredoka font-bold tracking-wide">{label}</span>
             </button>
           ))}
         </nav>
@@ -223,7 +223,7 @@ function BentoShell() {
 
         {/* Toast */}
         {toast && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-moku-dark text-white text-[10px] font-fredoka font-bold py-2 px-4 rounded-full border-2 border-white shadow-xl z-50 flex items-center gap-2 whitespace-nowrap">
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-moku-dark text-white text-xs font-fredoka font-bold py-2 px-4 rounded-full border-2 border-white shadow-xl z-50 flex items-center gap-2 whitespace-nowrap">
             {toast}
           </div>
         )}
