@@ -9,11 +9,10 @@ type AppContextValue = {
   plans: WeeklyPlan[];
   saveKid: (kid: Kid) => void;
   saveParentPrefs: (prefs: ParentPrefs) => void;
-  createDraftPlan: (days: string[], sessionNotes: string, items: LunchItem[]) => WeeklyPlan;
+  savePlan: (weekStartDate: string, days: string[], sessionNotes: string, items: LunchItem[]) => WeeklyPlan;
   updatePlanItems: (planId: string, items: LunchItem[]) => void;
   setGroceryList: (planId: string, list: GroceryItem[]) => void;
-  finalizePlan: (planId: string) => void;
-  discardDraft: () => void;
+  deletePlan: (planId: string) => void;
   clearAll: () => void;
   storageError: string | null;
 };
@@ -33,7 +32,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return result;
     } catch (e) {
       if (e instanceof Error && e.message === 'QUOTA_EXCEEDED') {
-        setStorageError('Storage is full. Clear plan history in Settings to free space.');
+        setStorageError('Storage is full. Delete old plans in Settings to free space.');
       }
       throw e;
     }
@@ -49,11 +48,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setParentPrefs(prefs);
   }, [persist]);
 
-  const createDraftPlan = useCallback((days: string[], sessionNotes: string, items: LunchItem[]): WeeklyPlan => {
+  const savePlan = useCallback((weekStartDate: string, days: string[], sessionNotes: string, items: LunchItem[]): WeeklyPlan => {
+    // replace any existing plan for this week
+    const existing = storage.getPlans().find((p) => p.weekStartDate === weekStartDate);
+    if (existing) storage.deletePlan(existing.id);
+
     const plan: WeeklyPlan = {
       id: uuidv4(),
       createdAt: new Date().toISOString(),
-      status: 'draft',
+      weekStartDate,
+      status: 'final',
       days,
       items,
       groceryList: null,
@@ -65,36 +69,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const updatePlanItems = useCallback((planId: string, items: LunchItem[]) => {
-    const plans = storage.getPlans();
-    const plan = plans.find((p) => p.id === planId);
+    const allPlans = storage.getPlans();
+    const plan = allPlans.find((p) => p.id === planId);
     if (!plan) return;
-    const updated = { ...plan, items };
-    persist(() => storage.savePlan(updated));
+    persist(() => storage.savePlan({ ...plan, items }));
     setPlans(storage.getPlans());
   }, [persist]);
 
   const setGroceryList = useCallback((planId: string, list: GroceryItem[]) => {
-    const plans = storage.getPlans();
-    const plan = plans.find((p) => p.id === planId);
+    const allPlans = storage.getPlans();
+    const plan = allPlans.find((p) => p.id === planId);
     if (!plan) return;
-    const updated = { ...plan, groceryList: list };
-    persist(() => storage.savePlan(updated));
+    persist(() => storage.savePlan({ ...plan, groceryList: list }));
     setPlans(storage.getPlans());
   }, [persist]);
 
-  const finalizePlan = useCallback((planId: string) => {
-    const plans = storage.getPlans();
-    const plan = plans.find((p) => p.id === planId);
-    if (!plan) return;
-    const updated = { ...plan, status: 'final' as const };
-    persist(() => storage.savePlan(updated));
-    setPlans(storage.getPlans());
-  }, [persist]);
-
-  const discardDraft = useCallback(() => {
-    const draft = storage.getDraftPlan();
-    if (!draft) return;
-    storage.deletePlan(draft.id);
+  const deletePlan = useCallback((planId: string) => {
+    storage.deletePlan(planId);
     setPlans(storage.getPlans());
   }, []);
 
@@ -112,11 +103,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       plans,
       saveKid,
       saveParentPrefs,
-      createDraftPlan,
+      savePlan,
       updatePlanItems,
       setGroceryList,
-      finalizePlan,
-      discardDraft,
+      deletePlan,
       clearAll,
       storageError,
     }}>

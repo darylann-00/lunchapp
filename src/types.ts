@@ -42,7 +42,7 @@ export type LunchItem = {
   id: string;
   kidId: string;
   day: string;
-  mainLunch: Dish;
+  lunches: Dish[];
   snacks: Dish[];
 };
 
@@ -57,6 +57,7 @@ export type GroceryItem = {
 export type WeeklyPlan = {
   id: string;
   createdAt: string;
+  weekStartDate: string;
   status: 'draft' | 'final';
   days: string[];
   items: LunchItem[];

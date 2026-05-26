@@ -35,9 +35,13 @@ const defaultPrefs: PrefsDraft = {
   otherNotes: '',
 };
 
-type Props = { prefillKid?: Kid; prefillPrefs?: ParentPrefs };
+type Props = {
+  prefillKid?: Kid;
+  prefillPrefs?: ParentPrefs;
+  onSaved?: () => void;
+};
 
-export default function Onboarding({ prefillKid, prefillPrefs }: Props) {
+export default function Onboarding({ prefillKid, prefillPrefs, onSaved }: Props) {
   const { saveKid, saveParentPrefs } = useApp();
   const navigate = useNavigate();
 
@@ -71,7 +75,11 @@ export default function Onboarding({ prefillKid, prefillPrefs }: Props) {
     };
     saveKid(finalKid);
     saveParentPrefs(finalPrefs);
-    navigate(isEdit ? '/settings' : '/');
+    if (onSaved) {
+      onSaved();
+    } else {
+      navigate('/');
+    }
   };
 
   return (

@@ -31,7 +31,6 @@ async function callAnthropic(body: object): Promise<string> {
   });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
-  // extract text from first content block
   const content = (data as { content: { type: string; text: string }[] }).content;
   return content.find((c) => c.type === 'text')?.text ?? '';
 }
@@ -45,7 +44,6 @@ async function callWithRetry<T>(
   const parsed = safeParseJson<T>(raw);
   if (parsed !== null && (!validate || validate(parsed))) return parsed;
 
-  // one retry with corrective prompt
   const retryBody = buildBody('Your last response was not valid JSON. Output only JSON, no preamble, no markdown.');
   const raw2 = await callAnthropic(retryBody);
   const parsed2 = safeParseJson<T>(raw2);
@@ -89,8 +87,7 @@ Parent's notes: ${notes || '(none)'}`,
     ],
   });
 
-  const result = await callWithRetry<ParsedSession>(buildBody);
-  return result;
+  return callWithRetry<ParsedSession>(buildBody);
 }
 
 export async function generateWeeklyPlan(
@@ -129,35 +126,24 @@ Apply this structure to every day:
 - Leftover logic. Dinner leftovers are a legitimate, encouraged lunch. Pack them
   in a thermos if there's no microwave access.
 - Ingredient reuse. Create as many different lunches as possible from one core
-  ingredient (e.g., rotisserie chicken → wrap Monday, grain bowl Wednesday,
-  quesadilla Friday). Minimize unique ingredients across the week to reduce waste.
+  ingredient. Minimize unique ingredients across the week to reduce waste.
 - Beat the sandwich rut. Rotate formats — don't default to sandwiches every day.
-  Mix in wraps, bento boxes, DIY lunchables, thermos meals, pinwheels, and
-  skewer-style finger foods.
-- Pack what they'll eat. A lunch that comes home uneaten is not a win. Prioritize
-  foods the kid actually likes over nutritional idealism.
-- Plan ahead. Flag anything that should be prepped the night before. Keep morning
-  assembly fast.
+- Pack what they'll eat. A lunch that comes home uneaten is not a win.
 
 ## Rules (in priority order)
 
 1. SAFETY: Never include any allergen listed in the kid's allergies. Respect
-   school/camp rules (e.g. nut-free facilities) absolutely. No exceptions.
+   school/camp rules absolutely. No exceptions.
 2. Respect dietary flags (vegetarian, vegan).
-3. The kid's saved repetition preference is a baseline. If this week's parent notes
-   conflict with it, the parent's notes for this week override the baseline.
+3. The kid's saved repetition preference is a baseline. Parent's notes override it.
 4. Respect the parent's prep-time constraint for this week.
 5. Stay within budget if provided.
 6. Cap packaged snacks at the daily maximum.
-7. Provide approximately the configured number of snacks per day, but the snacks
-   array can flex as long as total food volume is appropriate for the kid's age.
-8. Default style: practical, nutritious, well-rounded, kid-friendly. Not creative
-   for its own sake. Assume minimal cooking — favor assembly over recipes. Aim for
-   things the kid will actually eat.
+7. Provide approximately the configured number of snacks per day.
+8. Default style: practical, nutritious, well-rounded, kid-friendly.
 9. Use ingredients the parent mentioned having on hand when possible.
-10. Minimize unique ingredients across the whole week. The household has ${parentPrefs.householdSize} people total (adults + kids). Reuse the same proteins, produce, and dairy across multiple days in different preparations so nothing goes to waste — a small household cannot finish a whole bunch of cilantro or an entire block of cheese from one use. Aim for each perishable ingredient to appear in at least 2 days. Variety should come from how ingredients are combined, not from buying entirely different things each day.
-11. Each lunch and snack must include: name, one-sentence description, full prep
-    steps in prepNotes, and ingredients with quantities and units.
+10. Minimize unique ingredients across the whole week. The household has ${parentPrefs.householdSize} people total. Reuse proteins, produce, and dairy across multiple days in different preparations so nothing goes to waste. Each perishable should appear in at least 2 days.
+11. Each lunch and snack must include: name, one-sentence description, full prep steps in prepNotes, and ingredients with quantities and units.
 
 Output ONLY a valid JSON object, no preamble, no markdown:
 {
@@ -166,8 +152,10 @@ Output ONLY a valid JSON object, no preamble, no markdown:
     {
       "kidId": "string",
       "day": "string",
-      "mainLunch": { "id": "uuid", "name": "string", "description": "string", "prepNotes": "string", "isPackaged": false, "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] },
-      "snacks": [ /* same shape */ ]
+      "lunches": [
+        { "id": "uuid", "name": "string", "description": "string", "prepNotes": "string", "isPackaged": false, "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] }
+      ],
+      "snacks": [ /* same dish shape */ ]
     }
   ]
 }`,
@@ -204,11 +192,10 @@ This week's context:
 
   const result = await callWithRetry<{ days: string[]; items: LunchItem[] }>(buildBody, validate);
 
-  // stamp UUIDs on items and dishes
   result.items = result.items.map((item) => ({
     ...item,
     id: uuidv4(),
-    mainLunch: { ...item.mainLunch, id: item.mainLunch.id || uuidv4() },
+    lunches: item.lunches.map((d) => ({ ...d, id: d.id || uuidv4() })),
     snacks: item.snacks.map((s) => ({ ...s, id: s.id || uuidv4() })),
   }));
 
@@ -216,21 +203,22 @@ This week's context:
 }
 
 export async function generateGroceryList(
-  plan: WeeklyPlan,
+  plans: WeeklyPlan[],
   kid: Kid,
   _parentPrefs: ParentPrefs
 ): Promise<GroceryItem[]> {
+  const allItems = plans.flatMap((p) => p.items);
+
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: `You are building a grocery shopping list from an approved weekly lunch plan. The plan is final — your job is aggregation, not planning.
+    system: `You are building a grocery shopping list from approved weekly lunch plans. Walk every ingredient in every dish (lunches and snacks) across all days.
 
 Rules:
-1. Walk every ingredient in every dish (mainLunch and all snacks) across all days.
-2. Deduplicate by name. When the same ingredient appears multiple times, sum quantities where units match. When units don't match, list separate entries.
-3. Assign each item one category: produce, dairy, protein, grains, packaged, condiments, or other.
-4. Use sensible store-shopping quantities — round up to the nearest practical purchase unit (e.g. "1 bunch" of cilantro, not "3 sprigs").
-5. forKids should list the kid's name for every item in v0.
+1. Deduplicate by ingredient name. Sum quantities where units match; list separate entries when units differ.
+2. Assign each item one category: produce, dairy, protein, grains, packaged, condiments, or other.
+3. Use sensible store-shopping quantities — round up to the nearest practical purchase unit.
+4. forKids should list the kid's name for every item.
 
 Output ONLY a valid JSON array, no preamble, no markdown:
 [
@@ -243,8 +231,8 @@ Output ONLY a valid JSON array, no preamble, no markdown:
       {
         role: 'user' as const,
         content: `Kid: ${kid.name}
-Plan:
-${JSON.stringify(plan.items, null, 2)}`,
+Plan items:
+${JSON.stringify(allItems, null, 2)}`,
       },
     ],
   });
@@ -257,7 +245,7 @@ export async function regenerateDish(args: {
   parentPrefs: ParentPrefs;
   sessionNotes: string;
   day: string;
-  mealType: 'main' | 'snack';
+  mealType: 'lunch' | 'snack';
   currentDish: Dish;
   userNote: string;
   otherDishesThisWeek: Dish[];
