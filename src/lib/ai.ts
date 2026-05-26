@@ -113,7 +113,8 @@ Rules (in priority order):
 7. Provide approximately the configured number of snacks per day, but the snacks array can flex as long as total food volume is appropriate for the kid's age.
 8. Default style: practical, nutritious, well-rounded, kid-friendly. Not creative-for-its-own-sake. Assume minimal cooking — favor assembly over recipes. Aim for things the kid will actually eat.
 9. Use ingredients the parent mentioned having on hand when possible.
-10. Each lunch and snack must include name, one-sentence description, full prep steps in prepNotes, and ingredients with quantities and units.
+10. Minimize unique ingredients across the whole week. The household has ${parentPrefs.householdSize} people total (adults + kids). Reuse the same proteins, produce, and dairy across multiple days in different preparations so nothing goes to waste — a small household cannot finish a whole bunch of cilantro or an entire block of cheese from one use. Aim for each perishable ingredient to appear in at least 2 days. Variety should come from how ingredients are combined, not from buying entirely different things each day.
+11. Each lunch and snack must include name, one-sentence description, full prep steps in prepNotes, and ingredients with quantities and units.
 
 Output ONLY a valid JSON object, no preamble, no markdown:
 {
@@ -223,7 +224,7 @@ export async function regenerateDish(args: {
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 2048,
-    system: `You are a meal planning assistant. Generate ONE replacement dish only. The week's session notes and other dishes are provided for context — match the prep-time constraint, respect activities mentioned for this day, and avoid duplicating other dishes already in the plan unless the kid's repetition preference allows it.
+    system: `You are a meal planning assistant. Generate ONE replacement dish only. The week's session notes and other dishes are provided for context — match the prep-time constraint, respect activities mentioned for this day, and avoid duplicating other dishes already in the plan unless the kid's repetition preference allows it. Strongly prefer using ingredients that already appear elsewhere in the week's plan to minimize grocery waste for a small household.
 
 Same safety rules apply:
 1. Never include allergens listed in the kid's allergies.

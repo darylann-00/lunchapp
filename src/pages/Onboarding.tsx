@@ -29,6 +29,7 @@ const defaultKid: KidDraft = {
 
 const defaultPrefs: PrefsDraft = {
   weeklyBudget: null,
+  householdSize: 2,
   stores: [],
   organic: 'when-possible',
   otherNotes: '',
@@ -175,6 +176,12 @@ export default function Onboarding({ prefillKid, prefillPrefs }: Props) {
 
         <hr className="section-divider" />
         <h2>Your preferences</h2>
+
+        <div className="field">
+          <label>Household size <span className="muted">(adults + kids eating from this grocery list)</span></label>
+          <input type="number" required min={1} max={20} value={prefs.householdSize}
+            onChange={(e) => setPrefsField('householdSize', Number(e.target.value))} style={{ maxWidth: 80 }} />
+        </div>
 
         <div className="field">
           <label>Weekly budget <span className="muted">(optional, in $)</span></label>

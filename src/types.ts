@@ -17,6 +17,7 @@ export type Kid = {
 
 export type ParentPrefs = {
   weeklyBudget: number | null;
+  householdSize: number;
   stores: string[];
   organic: 'always' | 'never' | 'when-possible' | 'doesnt-matter';
   otherNotes: string;
