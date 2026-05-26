@@ -24,7 +24,7 @@ export default function ProfileTab({ kid, prefs, onSaved }: Props) {
           <h2 className="font-fredoka text-base font-bold text-moku-dark flex items-center gap-2">
             <span className="text-lg">⚙️</span> Kid Profile & Preferences
           </h2>
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             These settings shape every lunch plan BentoBot generates.
           </p>
         </div>
@@ -44,7 +44,7 @@ export default function ProfileTab({ kid, prefs, onSaved }: Props) {
       </div>
 
       {kid && (
-        <div className="bg-moku-beige moku-border rounded-2xl px-4 py-3 text-[10px] text-slate-500 text-center">
+        <div className="bg-moku-beige moku-border rounded-2xl px-4 py-3 text-xs text-slate-500 text-center">
           Changes apply to the <span className="font-bold text-moku-dark">next plan</span> you generate — existing plans are not affected.
         </div>
       )}

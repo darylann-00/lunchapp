@@ -105,7 +105,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
               <button
                 key={t}
                 onClick={() => setActiveType(t)}
-                className={`flex-1 font-fredoka text-[11px] font-bold py-1.5 rounded-xl border-2 border-white/50 moku-press transition-colors ${
+                className={`flex-1 font-fredoka text-xs font-bold py-1.5 rounded-xl border-2 border-white/50 moku-press transition-colors ${
                   activeType === t ? 'bg-white text-moku-dark' : 'bg-white/20 text-white'
                 }`}
               >
@@ -129,7 +129,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
                     value={dish.name}
                     onChange={(e) => updateDish(idx, 'name', e.target.value)}
                     placeholder="Dish name"
-                    className="flex-1 moku-border rounded-xl px-2.5 py-1.5 text-xs font-fredoka text-moku-dark focus:outline-none bg-white"
+                    className="flex-1 moku-border rounded-xl px-2.5 py-1.5 text-sm font-fredoka text-moku-dark focus:outline-none bg-white"
                   />
                   <button
                     onClick={() => removeDish(idx)}
@@ -145,18 +145,18 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
                     value={regenPrompts[dish.id] ?? ''}
                     onChange={(e) => setRegenPrompts((p) => ({ ...p, [dish.id]: e.target.value }))}
                     placeholder="AI tweak, e.g. make it nut-free"
-                    className="flex-1 bg-white moku-border rounded-lg px-2 py-1 text-[10px] focus:outline-none text-moku-dark"
+                    className="flex-1 bg-white moku-border rounded-lg px-2 py-1 text-xs focus:outline-none text-moku-dark"
                   />
                   <button
                     onClick={() => handleRegenerate(dish, idx)}
                     disabled={!!loadingIds[dish.id]}
-                    className="bg-moku-blue text-white font-fredoka text-[9px] px-2 py-1 rounded-lg moku-border moku-shadow-sm moku-press disabled:opacity-50 font-bold"
+                    className="bg-moku-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg moku-border moku-shadow-sm moku-press disabled:opacity-50 font-bold"
                   >
                     {loadingIds[dish.id] ? '...' : '✨'}
                   </button>
                 </div>
                 {errorIds[dish.id] && (
-                  <p className="text-[9px] text-red-500">{errorIds[dish.id]}</p>
+                  <p className="text-xs text-red-500">{errorIds[dish.id]}</p>
                 )}
               </div>
             ))
@@ -167,7 +167,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
         <div className="px-4 pb-2">
           <button
             onClick={addDish}
-            className="w-full border-2 border-dashed border-moku-dark/30 rounded-xl py-2 text-[11px] font-fredoka text-moku-dark/50 hover:border-moku-blue hover:text-moku-blue transition-colors"
+            className="w-full border-2 border-dashed border-moku-dark/30 rounded-xl py-2 text-xs font-fredoka text-moku-dark/50 hover:border-moku-blue hover:text-moku-blue transition-colors"
           >
             + Add {activeType === 'lunches' ? 'lunch' : 'snack'}
           </button>
@@ -177,13 +177,13 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
         <div className="flex gap-2 px-4 pb-4 pt-2">
           <button
             onClick={onClose}
-            className="flex-1 border-2 border-moku-dark/30 text-slate-500 font-fredoka text-xs py-2.5 rounded-xl moku-press"
+            className="flex-1 border-2 border-moku-dark/30 text-slate-500 font-fredoka text-sm py-2.5 rounded-xl moku-press"
           >
             Cancel
           </button>
           <button
             onClick={() => { onSave(draft); onClose(); }}
-            className="flex-[1.5] bg-moku-yellow text-moku-dark font-fredoka text-xs py-2.5 rounded-xl moku-border moku-shadow-sm moku-press font-bold"
+            className="flex-[1.5] bg-moku-yellow text-moku-dark font-fredoka text-sm py-2.5 rounded-xl moku-border moku-shadow-sm moku-press font-bold"
           >
             Save Changes 🍱
           </button>

@@ -115,7 +115,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
           {[1, 2].map((n) => (
             <div
               key={n}
-              className={`z-10 flex items-center gap-1 font-fredoka text-[9px] px-2 py-0.5 rounded-full border-2 font-bold transition-all ${
+              className={`z-10 flex items-center gap-1 font-fredoka text-xs px-2 py-0.5 rounded-full border-2 font-bold transition-all ${
                 step === n
                   ? 'bg-white border-moku-dark text-moku-dark scale-105'
                   : step > n
@@ -124,7 +124,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
               } ${n === 2 ? 'ml-auto' : ''}`}
             >
               <span
-                className={`w-3.5 h-3.5 rounded-full text-[8px] flex items-center justify-center font-bold ${
+                className={`w-3.5 h-3.5 rounded-full text-[10px] flex items-center justify-center font-bold ${
                   step > n ? 'bg-moku-yellow text-moku-dark' : step === n ? 'bg-moku-yellow text-moku-dark' : 'bg-white/30 text-white'
                 }`}
               >
@@ -142,13 +142,13 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
         <div className="flex-1 overflow-y-auto flex flex-col px-4 py-4 gap-3">
           {/* Day selector */}
           <div className="bg-moku-beige/50 border-2 border-dashed border-moku-dark/20 rounded-2xl p-3">
-            <p className="font-fredoka text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-wider">Days this week</p>
+            <p className="font-fredoka text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Days this week</p>
             <div className="flex gap-1.5 flex-wrap">
               {ALL_DAYS.map((day) => (
                 <button
                   key={day}
                   onClick={() => toggleDay(day)}
-                  className={`font-fredoka text-[10px] font-bold px-2 py-1 rounded-xl border-2 moku-press transition-colors ${
+                  className={`font-fredoka text-xs font-bold px-2 py-1 rounded-xl border-2 moku-press transition-colors ${
                     selectedDays.includes(day)
                       ? `${DAY_COLORS[day]} text-white border-moku-dark`
                       : 'bg-white text-slate-400 border-slate-200'
@@ -168,14 +168,14 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
                 className={`flex gap-2 items-start max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
               >
                 <div
-                  className={`w-6 h-6 rounded-full moku-border flex-shrink-0 flex items-center justify-center text-[10px] ${
+                  className={`w-6 h-6 rounded-full moku-border flex-shrink-0 flex items-center justify-center text-xs ${
                     msg.role === 'bot' ? 'bg-moku-yellow' : 'bg-moku-blue'
                   }`}
                 >
                   {msg.role === 'bot' ? '🤖' : '👩'}
                 </div>
                 <div
-                  className={`bg-white moku-border rounded-xl ${msg.role === 'bot' ? 'rounded-tl-none' : 'rounded-tr-none'} px-3 py-2 text-[11px] text-slate-700 leading-relaxed`}
+                  className={`bg-white moku-border rounded-xl ${msg.role === 'bot' ? 'rounded-tl-none' : 'rounded-tr-none'} px-3 py-2 text-xs text-slate-700 leading-relaxed`}
                 >
                   {msg.text}
                 </div>
@@ -185,7 +185,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
 
           {/* Quick stickers */}
           <div>
-            <p className="text-[9px] font-bold text-slate-400 mb-1.5">💡 QUICK ADDS:</p>
+            <p className="text-[10px] font-bold text-slate-400 mb-1.5">💡 QUICK ADDS:</p>
             <div className="flex flex-wrap gap-1">
               {[
                 ['🥜 Nut-Free', 'Nut-free week — no nuts of any kind'],
@@ -198,7 +198,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
                     appendMessage('user', preset);
                     setNotes((prev) => (prev ? `${prev}\n${preset}` : preset));
                   }}
-                  className="bg-white moku-border font-fredoka text-[9px] px-2 py-1 rounded-full moku-shadow-sm moku-press hover:bg-moku-yellow/20"
+                  className="bg-white moku-border font-fredoka text-xs px-2 py-1 rounded-full moku-shadow-sm moku-press hover:bg-moku-yellow/20"
                 >
                   {label}
                 </button>
@@ -213,7 +213,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
               type="text"
               placeholder="e.g. 'Use up the chicken from dinner'"
               onKeyDown={handleKeyDown}
-              className="flex-1 moku-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-moku-blue"
+              className="flex-1 moku-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-moku-blue"
             />
             <button
               onClick={addUserMessage}
@@ -251,8 +251,8 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
           <div className="bg-moku-yellow/10 border-2 border-dashed border-moku-yellow rounded-2xl p-3 flex items-start gap-2">
             <span className="text-xl">🙌</span>
             <div>
-              <h3 className="font-fredoka text-xs font-bold">Review Your Plan</h3>
-              <p className="text-[10px] text-slate-500">BentoBot generated this based on your notes. Confirm to save it!</p>
+              <h3 className="font-fredoka text-sm font-bold">Review Your Plan</h3>
+              <p className="text-xs text-slate-500">BentoBot generated this based on your notes. Confirm to save it!</p>
             </div>
           </div>
 
@@ -260,17 +260,17 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
             {draftItems.map((item) => (
               <div key={item.id} className="bg-white moku-border rounded-xl p-3 flex items-start gap-3">
                 <span
-                  className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] text-white font-fredoka font-bold ${DAY_COLORS[item.day] ?? 'bg-moku-blue'}`}
+                  className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs text-white font-fredoka font-bold ${DAY_COLORS[item.day] ?? 'bg-moku-blue'}`}
                 >
                   {item.day[0]}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-fredoka text-xs font-bold text-moku-dark">{item.day}</p>
+                  <p className="font-fredoka text-sm font-bold text-moku-dark">{item.day}</p>
                   {item.lunches.map((d) => (
-                    <p key={d.id} className="text-[11px] text-slate-700 truncate">🍱 {d.name}</p>
+                    <p key={d.id} className="text-xs text-slate-700 truncate">🍱 {d.name}</p>
                   ))}
                   {item.snacks.map((d) => (
-                    <p key={d.id} className="text-[11px] text-slate-500 truncate">🍎 {d.name}</p>
+                    <p key={d.id} className="text-xs text-slate-500 truncate">🍎 {d.name}</p>
                   ))}
                 </div>
               </div>
@@ -280,13 +280,13 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
           <div className="flex gap-2 mt-auto pt-2">
             <button
               onClick={() => setStep(1)}
-              className="flex-1 border-2 border-moku-dark/30 text-moku-dark font-fredoka text-xs py-2.5 rounded-xl moku-press"
+              className="flex-1 border-2 border-moku-dark/30 text-moku-dark font-fredoka text-sm py-2.5 rounded-xl moku-press"
             >
               ← Back
             </button>
             <button
               onClick={handleCommit}
-              className="flex-[1.5] bg-moku-yellow text-moku-dark font-fredoka font-bold text-xs py-2.5 rounded-xl moku-border moku-shadow-sm moku-press"
+              className="flex-[1.5] bg-moku-yellow text-moku-dark font-fredoka font-bold text-sm py-2.5 rounded-xl moku-border moku-shadow-sm moku-press"
             >
               Apply Plan 🍱
             </button>
@@ -295,7 +295,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
       )}
 
       {/* Footer */}
-      <div className="py-2 bg-moku-beige border-t border-slate-200 text-center text-[9px] font-fredoka font-bold text-moku-blue select-none">
+      <div className="py-2 bg-moku-beige border-t border-slate-200 text-center text-[10px] font-fredoka font-bold text-moku-blue select-none">
         🧁 POWERED BY BENTOBOT
       </div>
     </div>
