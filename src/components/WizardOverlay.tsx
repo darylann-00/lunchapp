@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import type { Kid, ParentPrefs, LunchItem } from '../types';
+import type { Kid, ParentPrefs, LunchItem, ParsedSession } from '../types';
 import { useAI } from '../hooks/useAI';
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -32,8 +32,8 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
   const [draftItems, setDraftItems] = useState<LunchItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { parseNotes, generatePlan } = useAI();
-  const isLoading = parseNotes.loading || generatePlan.loading;
+  const { generatePlan } = useAI();
+  const isLoading = generatePlan.loading;
 
   const toggleDay = (day: string) =>
     setSelectedDays((prev) =>
@@ -59,11 +59,13 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
 
     appendMessage('bot', 'Got it! Cooking up your week plan now...');
 
-    const session = await parseNotes.call(notes, selectedDays, kid, prefs);
-    if (!session) {
-      appendMessage('bot', 'Hmm, something went wrong parsing your notes. Try again?');
-      return;
-    }
+    // Build ParsedSession directly from wizard state — no extra AI call needed
+    const session: ParsedSession = {
+      daysNeeded: selectedDays,
+      ingredientsOnHand: [],
+      specialNotes: notes.trim(),
+      prepTimeAvailable: 'medium',
+    };
 
     const result = await generatePlan.call(session, kid, prefs);
     if (!result) {
@@ -237,8 +239,8 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
             )}
           </button>
 
-          {(parseNotes.error || generatePlan.error) && (
-            <p className="text-xs text-red-500 text-center">{parseNotes.error ?? generatePlan.error}</p>
+          {generatePlan.error && (
+            <p className="text-xs text-red-500 text-center">{generatePlan.error}</p>
           )}
         </div>
       )}
