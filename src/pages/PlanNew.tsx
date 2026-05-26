@@ -88,7 +88,6 @@ export default function PlanNew() {
     setPhase('generating');
     const result = await generatePlan.call(finalSession, kid, parentPrefs);
     if (!result) {
-      setPhase('confirm');
       return;
     }
 
