@@ -18,7 +18,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const arrayBuffer = await audio.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString('base64');
-  const mediaType = audio.type || 'audio/webm';
+
+  const ALLOWED_MEDIA_TYPES = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg'] as const;
+  type AllowedMediaType = typeof ALLOWED_MEDIA_TYPES[number];
+  const rawType = audio.type || 'audio/webm';
+  if (!(ALLOWED_MEDIA_TYPES as readonly string[]).includes(rawType)) {
+    return Response.json({ error: `Unsupported audio type: ${rawType}` }, { status: 400 });
+  }
+  const mediaType = rawType as AllowedMediaType;
 
   const body = JSON.stringify({
     model: 'claude-sonnet-4-6',
