@@ -1,4 +1,4 @@
-import { requireAuth } from './_auth';
+import { requireAuth } from './_auth.js';
 
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireAuth(request);
