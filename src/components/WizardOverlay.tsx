@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import type { Kid, ParentPrefs, LunchItem, ParsedSession } from '../types';
-import { useAI } from '../hooks/useAI';
+import type { Kid, ParentPrefs, ParsedSession } from '../types';
+import { useApp } from '../context/AppContext';
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -19,21 +19,17 @@ type Props = {
   kid: Kid;
   prefs: ParentPrefs;
   onClose: () => void;
-  onCommit: (weekStartDate: string, days: string[], notes: string, items: LunchItem[]) => void;
 };
 
-export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCommit }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
+export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Props) {
   const [selectedDays, setSelectedDays] = useState<string[]>([...ALL_DAYS]);
   const [notes, setNotes] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'bot', text: `Hi! I'm BentoBot 🤖 Tell me anything special about this week — leftovers to use, days to skip, or specific requests. Or just hit Generate!` },
   ]);
-  const [draftItems, setDraftItems] = useState<LunchItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { generatePlan } = useAI();
-  const isLoading = generatePlan.loading;
+  const { startBackgroundPlanGeneration, backgroundGen } = useApp();
 
   const toggleDay = (day: string) =>
     setSelectedDays((prev) =>
@@ -51,15 +47,12 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (selectedDays.length === 0) {
       appendMessage('bot', 'Please select at least one day first!');
       return;
     }
 
-    appendMessage('bot', 'Got it! Cooking up your week plan now...');
-
-    // Build ParsedSession directly from wizard state — no extra AI call needed
     const session: ParsedSession = {
       daysNeeded: selectedDays,
       ingredientsOnHand: [],
@@ -67,23 +60,12 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
       prepTimeAvailable: 'medium',
     };
 
-    const result = await generatePlan.call(session, kid, prefs);
-    if (!result) {
-      appendMessage('bot', 'Could not generate a plan. Please try again.');
-      return;
-    }
-
-    const itemsWithKid = result.items.map((item) => ({ ...item, kidId: kid.id }));
-    setDraftItems(itemsWithKid);
-    setStep(2);
+    startBackgroundPlanGeneration(weekStartDate, session, kid, prefs);
+    onClose();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') addUserMessage();
-  };
-
-  const handleCommit = () => {
-    onCommit(weekStartDate, selectedDays, notes, draftItems);
   };
 
   return (
@@ -105,41 +87,11 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
           </button>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-3 mt-3 bg-white/10 rounded-xl px-3 py-2 border border-white/20 relative">
-          <div className="absolute left-[72px] right-[72px] top-1/2 -translate-y-1/2 h-[2px] bg-white/20" />
-          <div
-            className="absolute top-1/2 -translate-y-1/2 h-[2px] bg-moku-yellow transition-all duration-300"
-            style={{ left: '72px', right: step === 2 ? '72px' : '50%' }}
-          />
-          {[1, 2].map((n) => (
-            <div
-              key={n}
-              className={`z-10 flex items-center gap-1 font-fredoka text-xs px-2 py-0.5 rounded-full border-2 font-bold transition-all ${
-                step === n
-                  ? 'bg-white border-moku-dark text-moku-dark scale-105'
-                  : step > n
-                  ? 'bg-white/80 border-white/50 text-moku-dark opacity-80'
-                  : 'bg-white/20 border-white/30 text-white/70'
-              } ${n === 2 ? 'ml-auto' : ''}`}
-            >
-              <span
-                className={`w-3.5 h-3.5 rounded-full text-[10px] flex items-center justify-center font-bold ${
-                  step > n ? 'bg-moku-yellow text-moku-dark' : step === n ? 'bg-moku-yellow text-moku-dark' : 'bg-white/30 text-white'
-                }`}
-              >
-                {step > n ? '✓' : n}
-              </span>
-              <span>{n === 1 ? 'Tell BentoBot' : 'Review Plan'}</span>
-            </div>
-          ))}
-        </div>
         <div className="absolute bottom-0 left-0 right-0 h-3 scallop-wave" />
       </div>
 
-      {/* Step 1: Chat + day selector */}
-      {step === 1 && (
-        <div className="flex-1 overflow-y-auto flex flex-col px-4 py-4 gap-3">
+      {/* Chat + day selector */}
+      <div className="flex-1 overflow-y-auto flex flex-col px-4 py-4 gap-3">
           {/* Day selector */}
           <div className="bg-moku-beige/50 border-2 border-dashed border-moku-dark/20 rounded-2xl p-3">
             <p className="font-fredoka text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Days this week</p>
@@ -223,76 +175,19 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose, onCo
             </button>
           </div>
 
-          {/* Generate button */}
-          <button
-            onClick={handleGenerate}
-            disabled={isLoading || selectedDays.length === 0}
-            className="w-full bg-moku-yellow text-moku-dark font-fredoka font-bold text-sm py-3 rounded-xl moku-border moku-shadow moku-press disabled:opacity-50"
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="inline-block w-4 h-4 border-2 border-moku-dark/30 border-t-moku-dark rounded-full animate-spin" />
-                Generating…
-              </span>
-            ) : (
-              '✨ Generate Plan'
-            )}
-          </button>
+        {/* Generate button */}
+        <button
+          onClick={handleGenerate}
+          disabled={backgroundGen.active || selectedDays.length === 0}
+          className="w-full bg-moku-yellow text-moku-dark font-fredoka font-bold text-sm py-3 rounded-xl moku-border moku-shadow moku-press disabled:opacity-50"
+        >
+          ✨ Generate Plan
+        </button>
 
-          {generatePlan.error && (
-            <p className="text-xs text-red-500 text-center">{generatePlan.error}</p>
-          )}
-        </div>
-      )}
-
-      {/* Step 2: Review draft */}
-      {step === 2 && (
-        <div className="flex-1 overflow-y-auto flex flex-col px-4 py-4 gap-3">
-          <div className="bg-moku-yellow/10 border-2 border-dashed border-moku-yellow rounded-2xl p-3 flex items-start gap-2">
-            <span className="text-xl">🙌</span>
-            <div>
-              <h3 className="font-fredoka text-sm font-bold">Review Your Plan</h3>
-              <p className="text-xs text-slate-500">BentoBot generated this based on your notes. Confirm to save it!</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {draftItems.map((item) => (
-              <div key={item.id} className="bg-white moku-border rounded-xl p-3 flex items-start gap-3">
-                <span
-                  className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs text-white font-fredoka font-bold ${DAY_COLORS[item.day] ?? 'bg-moku-blue'}`}
-                >
-                  {item.day[0]}
-                </span>
-                <div className="min-w-0">
-                  <p className="font-fredoka text-sm font-bold text-moku-dark">{item.day}</p>
-                  {item.lunches.map((d) => (
-                    <p key={d.id} className="text-xs text-slate-700 truncate">🍱 {d.name}</p>
-                  ))}
-                  {item.snacks.map((d) => (
-                    <p key={d.id} className="text-xs text-slate-500 truncate">🍎 {d.name}</p>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-2 mt-auto pt-2">
-            <button
-              onClick={() => setStep(1)}
-              className="flex-1 border-2 border-moku-dark/30 text-moku-dark font-fredoka text-sm py-2.5 rounded-xl moku-press"
-            >
-              ← Back
-            </button>
-            <button
-              onClick={handleCommit}
-              className="flex-[1.5] bg-moku-yellow text-moku-dark font-fredoka font-bold text-sm py-2.5 rounded-xl moku-border moku-shadow-sm moku-press"
-            >
-              Apply Plan 🍱
-            </button>
-          </div>
-        </div>
-      )}
+        {backgroundGen.active && (
+          <p className="text-xs text-moku-dark text-center">⏳ Another plan is generating…</p>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="py-2 bg-moku-beige border-t border-slate-200 text-center text-[10px] font-fredoka font-bold text-moku-blue select-none">

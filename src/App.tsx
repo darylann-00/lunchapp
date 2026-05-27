@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { useAuth } from './hooks/useAuth';
@@ -32,7 +32,7 @@ function RequireKid({ children }: { children: React.ReactNode }) {
 }
 
 function BentoShell() {
-  const { plans, savePlan, updatePlanItems, storageError } = useApp();
+  const { plans, updatePlanItems, storageError, backgroundGen, clearBackgroundGenError } = useApp();
   const { kid } = useKid();
   const { parentPrefs: prefs } = useParentPrefs();
 
@@ -42,6 +42,8 @@ function BentoShell() {
   const [editingItem, setEditingItem] = useState<LunchItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  const prevActive = useRef(false);
+
   const activePlan = plans.find((p) => p.weekStartDate === weekStart) ?? null;
 
   const showToast = (msg: string) => {
@@ -49,12 +51,21 @@ function BentoShell() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const handleCommitPlan = (weekStartDate: string, days: string[], notes: string, items: LunchItem[]) => {
-    savePlan(weekStartDate, days, notes, items);
-    setWizardOpen(false);
-    setActiveTab('lunch');
-    showToast('✨ Plan saved for this week!');
-  };
+  // Watch backgroundGen and show toast when generation completes
+  useEffect(() => {
+    if (prevActive.current && !backgroundGen.active) {
+      const msg = backgroundGen.error
+        ? `⚠️ ${backgroundGen.error}`
+        : '✨ Plan saved for this week!';
+      setToast(msg);
+      const timeout = setTimeout(() => setToast(null), 2500);
+      if (backgroundGen.error) {
+        clearBackgroundGenError();
+      }
+      return () => clearTimeout(timeout);
+    }
+    prevActive.current = backgroundGen.active;
+  }, [backgroundGen.active, backgroundGen.error, clearBackgroundGenError]);
 
   const handleSaveItem = (updated: LunchItem) => {
     if (!activePlan) return;
@@ -153,6 +164,14 @@ function BentoShell() {
           </div>
         )}
 
+        {/* Background generation banner */}
+        {backgroundGen.active && (
+          <div className="bg-moku-yellow/30 border-b-2 border-moku-yellow px-4 py-2 text-xs text-moku-dark font-fredoka font-bold z-20 flex items-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-moku-dark/30 border-t-moku-dark rounded-full animate-spin" />
+            Generating your plan in the background…
+          </div>
+        )}
+
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto px-3 pt-3 pb-20 z-10">
           {activeTab === 'lunch' && (
@@ -211,7 +230,6 @@ function BentoShell() {
             kid={kid}
             prefs={prefs}
             onClose={() => setWizardOpen(false)}
-            onCommit={handleCommitPlan}
           />
         )}
 
