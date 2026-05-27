@@ -9,7 +9,12 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
   }
 
-  const body = await request.text();
+  const raw = await request.json() as Record<string, unknown>;
+  const sanitized = {
+    ...raw,
+    model: 'claude-sonnet-4-6',
+    max_tokens: Math.min(typeof raw.max_tokens === 'number' ? raw.max_tokens : 4096, 4096),
+  };
 
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -18,7 +23,7 @@ export async function POST(request: Request): Promise<Response> {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    body,
+    body: JSON.stringify(sanitized),
   });
 
   const data = await upstream.text();
