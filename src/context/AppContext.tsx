@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem } from '../types';
+import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem, ParsedSession } from '../types';
 import { supabase } from '../lib/supabase';
+import * as ai from '../lib/ai';
 
 type AppContextValue = {
   kids: Kid[];
@@ -15,6 +16,9 @@ type AppContextValue = {
   deletePlan: (planId: string) => Promise<void>;
   clearAll: () => Promise<void>;
   storageError: string | null;
+  backgroundGen: { active: boolean; weekStartDate: string | null; error: string | null };
+  startBackgroundPlanGeneration: (weekStartDate: string, session: ParsedSession, kid: Kid, prefs: ParentPrefs) => void;
+  clearBackgroundGenError: () => void;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -51,6 +55,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [plans, setPlans] = useState<WeeklyPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [backgroundGen, setBackgroundGen] = useState<{ active: boolean; weekStartDate: string | null; error: string | null }>({ active: false, weekStartDate: null, error: null });
 
   // Track auth session; load data when user signs in, clear when they sign out.
   useEffect(() => {
@@ -206,6 +211,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPlans([]);
   }, [userId, wrap]);
 
+  const startBackgroundPlanGeneration = useCallback((
+    weekStartDate: string,
+    session: ParsedSession,
+    kid: Kid,
+    prefs: ParentPrefs
+  ) => {
+    if (backgroundGen.active) return;
+
+    setBackgroundGen({ active: true, weekStartDate, error: null });
+
+    void (async () => {
+      try {
+        const result = await ai.generateWeeklyPlan(session, kid, prefs);
+        const itemsWithKid = result.items.map((item) => ({ ...item, kidId: kid.id }));
+        await savePlan(weekStartDate, session.daysNeeded, session.specialNotes, itemsWithKid);
+        setBackgroundGen({ active: false, weekStartDate: null, error: null });
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Generation failed';
+        setBackgroundGen({ active: false, weekStartDate: null, error: errorMsg });
+      }
+    })();
+  }, [backgroundGen.active, savePlan]);
+
+  const clearBackgroundGenError = useCallback(() => {
+    setBackgroundGen((prev) => ({ ...prev, error: null }));
+  }, []);
+
   return (
     <AppContext.Provider value={{
       kids,
@@ -220,6 +252,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deletePlan,
       clearAll,
       storageError,
+      backgroundGen,
+      startBackgroundPlanGeneration,
+      clearBackgroundGenError,
     }}>
       {children}
     </AppContext.Provider>
