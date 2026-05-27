@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Kid, ParentPrefs } from '../types';
-import Onboarding from '../pages/Onboarding';
+import Onboarding, { DIETARY_OPTIONS } from '../pages/Onboarding';
 
 type Props = {
   kid: Kid | null;
@@ -8,46 +8,167 @@ type Props = {
   onSaved: () => void;
 };
 
-export default function ProfileTab({ kid, prefs, onSaved }: Props) {
-  const [saved, setSaved] = useState(false);
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-fredoka font-bold text-moku-dark/50 uppercase tracking-wider">
+        {label}
+      </span>
+      <span className="text-sm font-fredoka font-semibold text-moku-dark">
+        {value || <span className="text-slate-300 font-normal">—</span>}
+      </span>
+    </div>
+  );
+}
+
+export default function ProfileTab({ kid, prefs: _prefs, onSaved }: Props) {
+  const [editing, setEditing] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   const handleSaved = () => {
-    setSaved(true);
+    setSavedFlash(true);
+    setEditing(false);
     onSaved();
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSavedFlash(false), 2500);
   };
+
+  if (!kid) {
+    return (
+      <div className="bg-white moku-border rounded-2xl moku-shadow p-6 text-center">
+        <p className="font-fredoka text-moku-dark/50 text-sm">No profile set up yet.</p>
+      </div>
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="bg-white moku-border rounded-2xl moku-shadow overflow-hidden">
+          <div className="bg-moku-yellow/20 px-4 py-3 border-b-2 border-moku-dark/20 flex items-center justify-between">
+            <h2 className="font-fredoka text-base font-bold text-moku-dark">Edit profile</h2>
+            <button
+              onClick={() => setEditing(false)}
+              className="text-xs font-fredoka font-bold text-slate-400 hover:text-moku-dark"
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="px-4 py-4">
+            <Onboarding
+              prefillKid={kid}
+              onSaved={handleSaved}
+              compact
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Active dietary restrictions
+  const activeRestrictions = DIETARY_OPTIONS.filter((opt) => {
+    if ('allergen' in opt) return kid.allergies.includes((opt as { allergen: string }).allergen);
+    if ('special' in opt) {
+      const o = opt as { special: 'vegetarian' | 'vegan' };
+      if (o.special === 'vegan') return kid.isVegan;
+      if (o.special === 'vegetarian') return kid.isVegetarian;
+    }
+    return false;
+  });
 
   return (
     <div className="flex flex-col gap-3">
+      {savedFlash && (
+        <div className="bg-green-50 moku-border border-green-400 rounded-2xl px-4 py-2.5 text-xs font-fredoka font-bold text-green-700 flex items-center gap-2">
+          ✅ Profile saved!
+        </div>
+      )}
+
+      {/* Header card */}
       <div className="bg-white moku-border rounded-2xl moku-shadow overflow-hidden">
-        <div className="bg-moku-yellow/20 px-4 py-3 border-b-2 border-moku-dark/20">
-          <h2 className="font-fredoka text-base font-bold text-moku-dark flex items-center gap-2">
-            <span className="text-lg">⚙️</span> Kid Profile & Preferences
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            These settings shape every lunch plan BentoBot generates.
-          </p>
+        <div className="bg-moku-blue/20 px-4 py-4 flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-moku-blue/30 moku-border flex-shrink-0 flex items-center justify-center text-2xl select-none">
+            🧒
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-fredoka text-lg font-bold text-moku-dark leading-tight truncate">
+              {kid.name}
+            </p>
+            <p className="text-xs font-fredoka text-moku-dark/60">
+              {kid.age} year{kid.age !== 1 ? 's' : ''} old
+            </p>
+          </div>
+          <button
+            onClick={() => setEditing(true)}
+            className="flex-shrink-0 bg-moku-yellow moku-border rounded-xl px-3 py-1.5 text-xs font-fredoka font-bold text-moku-dark moku-shadow-sm moku-press"
+          >
+            Edit
+          </button>
         </div>
 
-        <div className="px-4 py-4">
-          {saved && (
-            <div className="mb-3 bg-green-50 border-2 border-green-400 rounded-xl px-3 py-2 text-xs font-fredoka font-bold text-green-700 flex items-center gap-2">
-              ✅ Profile saved!
-            </div>
+        <div className="px-4 py-4 flex flex-col gap-4 border-t-2 border-moku-dark/10">
+          {/* Dietary restrictions */}
+          <div>
+            <span className="text-[10px] font-fredoka font-bold text-moku-dark/50 uppercase tracking-wider block mb-2">
+              Dietary restrictions
+            </span>
+            {activeRestrictions.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {activeRestrictions.map((opt) => (
+                  <span
+                    key={opt.id}
+                    className="bg-moku-dark text-white text-xs font-fredoka font-bold px-2.5 py-1 rounded-lg"
+                  >
+                    {opt.label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm font-fredoka text-slate-300">None</span>
+            )}
+          </div>
+
+          {/* Likes / dislikes */}
+          <div className="grid grid-cols-2 gap-3">
+            <InfoRow
+              label="Favourite foods"
+              value={kid.likes.join(', ')}
+            />
+            <InfoRow
+              label="Foods to avoid"
+              value={kid.dislikes.join(', ')}
+            />
+          </div>
+
+          {/* School rules */}
+          {kid.schoolOrCampRules && (
+            <InfoRow label="School / camp rules" value={kid.schoolOrCampRules} />
           )}
-          <Onboarding
-            prefillKid={kid ?? undefined}
-            prefillPrefs={prefs ?? undefined}
-            onSaved={handleSaved}
-          />
+
+          {/* Snacks */}
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-8 h-4 rounded-full border-2 border-moku-dark/30 relative flex-shrink-0 ${
+                kid.needsSnacks ? 'bg-moku-dark' : 'bg-moku-dark/15'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white border border-moku-dark/20 shadow transition-all ${
+                  kid.needsSnacks ? 'left-[calc(100%-0.75rem)]' : 'left-0.5'
+                }`}
+              />
+            </span>
+            <span className="text-xs font-fredoka font-semibold text-moku-dark/70">
+              {kid.needsSnacks ? 'Packing snacks' : 'No snacks'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {kid && (
-        <div className="bg-moku-beige moku-border rounded-2xl px-4 py-3 text-xs text-slate-500 text-center">
-          Changes apply to the <span className="font-bold text-moku-dark">next plan</span> you generate — existing plans are not affected.
-        </div>
-      )}
+      <div className="bg-moku-beige moku-border rounded-2xl px-4 py-3 text-xs text-slate-500 text-center">
+        Changes apply to the{' '}
+        <span className="font-bold text-moku-dark">next plan</span> you generate.
+      </div>
     </div>
   );
 }

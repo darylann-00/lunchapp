@@ -4,229 +4,430 @@ import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../context/AppContext';
 import type { Kid, ParentPrefs } from '../types';
 
-function parseList(s: string): string[] {
+export const DIETARY_OPTIONS = [
+  { id: 'peanut-free', label: 'Peanut-free', allergen: 'peanuts' },
+  { id: 'tree-nut-free', label: 'Tree-nut-free', allergen: 'tree nuts' },
+  { id: 'dairy-free', label: 'Dairy-free', allergen: 'dairy' },
+  { id: 'gluten-free', label: 'Gluten-free', allergen: 'gluten' },
+  { id: 'egg-free', label: 'Egg-free', allergen: 'eggs' },
+  { id: 'fish-free', label: 'Fish-free', allergen: 'fish' },
+  { id: 'shellfish-free', label: 'Shellfish-free', allergen: 'shellfish' },
+  { id: 'soy-free', label: 'Soy-free', allergen: 'soy' },
+  { id: 'sesame-free', label: 'Sesame-free', allergen: 'sesame' },
+  { id: 'red-meat-free', label: 'Red meat-free', allergen: 'red meat' },
+  { id: 'pork-free', label: 'Pork-free', allergen: 'pork' },
+  { id: 'vegetarian', label: 'Vegetarian', special: 'vegetarian' as const },
+  { id: 'vegan', label: 'Vegan', special: 'vegan' as const },
+] as const;
+
+type DietaryOption = (typeof DIETARY_OPTIONS)[number];
+
+function ageFromBirth(month: number, year: number): number {
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  if (today.getMonth() + 1 < month) age--;
+  return Math.max(1, age);
+}
+
+function buildInitialRestrictions(kid?: Kid): Set<string> {
+  if (!kid) return new Set();
+  const s = new Set<string>();
+  for (const opt of DIETARY_OPTIONS) {
+    if ('allergen' in opt && kid.allergies.includes((opt as { allergen: string }).allergen)) {
+      s.add(opt.id);
+    }
+    if ('special' in opt) {
+      const o = opt as { id: string; special: 'vegetarian' | 'vegan' };
+      if (o.special === 'vegetarian' && kid.isVegetarian) s.add(opt.id);
+      if (o.special === 'vegan' && kid.isVegan) s.add(opt.id);
+    }
+  }
+  return s;
+}
+
+function parseCSV(s: string): string[] {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
-type KidDraft = Omit<Kid, 'id'>;
-type PrefsDraft = ParentPrefs;
-
-const defaultKid: KidDraft = {
-  name: '',
-  age: 5,
-  allergies: [],
-  dislikes: [],
-  likes: [],
-  repetitionPreference: 'some-variety',
-  needsSnacks: true,
-  snacksPerDay: 2,
-  maxPackagedSnacksPerDay: 1,
-  isVegetarian: false,
-  isVegan: false,
-  schoolOrCampRules: '',
-  otherDietaryNotes: '',
-};
-
-const defaultPrefs: PrefsDraft = {
-  weeklyBudget: null,
-  householdSize: 2,
-  stores: [],
-  organic: 'when-possible',
-  otherNotes: '',
-};
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 type Props = {
   prefillKid?: Kid;
   prefillPrefs?: ParentPrefs;
   onSaved?: () => void;
+  compact?: boolean;
 };
 
-export default function Onboarding({ prefillKid, prefillPrefs, onSaved }: Props) {
+function ProgressIndicator({ step }: { step: number }) {
+  return (
+    <div className="flex items-center justify-center gap-0">
+      {[1, 2, 3].map((n) => (
+        <div key={n} className="flex items-center">
+          {n > 1 && (
+            <div
+              className={`w-8 h-0.5 ${n <= step ? 'bg-moku-dark' : 'bg-moku-dark/20'}`}
+            />
+          )}
+          <div
+            className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-fredoka font-bold border-[2.5px] transition-all ${
+              n < step
+                ? 'bg-moku-dark text-white border-moku-dark'
+                : n === step
+                ? 'bg-moku-yellow text-moku-dark border-moku-dark shadow-[2px_2px_0px_#134e9e]'
+                : 'bg-white text-moku-dark/30 border-moku-dark/25'
+            }`}
+          >
+            {n < step ? '✓' : n}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact }: Props) {
   const { saveKid, saveParentPrefs } = useApp();
   const navigate = useNavigate();
-
   const isEdit = !!prefillKid;
 
-  const [kid, setKid] = useState<KidDraft>(prefillKid ?? defaultKid);
-  const [prefs, setPrefs] = useState<PrefsDraft>(prefillPrefs ?? defaultPrefs);
-  const [allergiesRaw, setAllergiesRaw] = useState(prefillKid?.allergies.join(', ') ?? '');
-  const [dislikesRaw, setDislikesRaw] = useState(prefillKid?.dislikes.join(', ') ?? '');
+  const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+
+  // Step 1
+  const [name, setName] = useState(prefillKid?.name ?? '');
+  const currentYear = new Date().getFullYear();
+  const [birthMonth, setBirthMonth] = useState<number>(1);
+  const [birthYear, setBirthYear] = useState<number>(
+    prefillKid ? currentYear - prefillKid.age : currentYear - 6,
+  );
+
+  // Step 2
+  const [restrictions, setRestrictions] = useState<Set<string>>(
+    () => buildInitialRestrictions(prefillKid),
+  );
+
+  // Step 3
   const [likesRaw, setLikesRaw] = useState(prefillKid?.likes.join(', ') ?? '');
-  const [storesRaw, setStoresRaw] = useState(prefillPrefs?.stores.join(', ') ?? '');
+  const [dislikesRaw, setDislikesRaw] = useState(prefillKid?.dislikes.join(', ') ?? '');
+  const [schoolRules, setSchoolRules] = useState(prefillKid?.schoolOrCampRules ?? '');
+  const [needsSnacks, setNeedsSnacks] = useState(prefillKid?.needsSnacks ?? true);
 
-  const setKidField = <K extends keyof KidDraft>(key: K, val: KidDraft[K]) =>
-    setKid((prev) => ({ ...prev, [key]: val }));
+  const toggleRestriction = (id: string) => {
+    setRestrictions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  const setPrefsField = <K extends keyof PrefsDraft>(key: K, val: PrefsDraft[K]) =>
-    setPrefs((prev) => ({ ...prev, [key]: val }));
+  const handleFinish = async () => {
+    const allergyOpts = DIETARY_OPTIONS.filter(
+      (opt): opt is DietaryOption & { allergen: string } =>
+        'allergen' in opt && restrictions.has(opt.id),
+    );
+    const allergies = allergyOpts.map((o) => o.allergen);
+    const isVegan = restrictions.has('vegan');
+    const isVegetarian = restrictions.has('vegetarian') || isVegan;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     const finalKid: Kid = {
-      ...kid,
       id: prefillKid?.id ?? uuidv4(),
-      allergies: parseList(allergiesRaw),
-      dislikes: parseList(dislikesRaw),
-      likes: parseList(likesRaw),
+      name: name.trim(),
+      age: ageFromBirth(birthMonth, birthYear),
+      allergies,
+      dislikes: parseCSV(dislikesRaw),
+      likes: parseCSV(likesRaw),
+      repetitionPreference: prefillKid?.repetitionPreference ?? 'some-variety',
+      needsSnacks,
+      snacksPerDay: prefillKid?.snacksPerDay ?? 2,
+      maxPackagedSnacksPerDay: prefillKid?.maxPackagedSnacksPerDay ?? 1,
+      isVegetarian,
+      isVegan,
+      schoolOrCampRules: schoolRules,
+      otherDietaryNotes: prefillKid?.otherDietaryNotes ?? '',
     };
-    const finalPrefs: ParentPrefs = {
-      ...prefs,
-      stores: parseList(storesRaw),
+
+    const finalPrefs: ParentPrefs = prefillPrefs ?? {
+      weeklyBudget: null,
+      householdSize: 2,
+      stores: [],
+      organic: 'when-possible',
+      otherNotes: '',
     };
-    await saveKid(finalKid);
-    await saveParentPrefs(finalPrefs);
-    if (onSaved) {
-      onSaved();
-    } else {
-      navigate('/');
+
+    setSaving(true);
+    try {
+      await saveKid(finalKid);
+      await saveParentPrefs(finalPrefs);
+      if (onSaved) onSaved();
+      else navigate('/');
+    } finally {
+      setSaving(false);
     }
   };
 
-  return (
-    <div className="page">
-      <h1>{isEdit ? 'Edit profile' : "Let's get set up"}</h1>
-      <form onSubmit={handleSubmit}>
-        <h2>About your kid</h2>
+  const canProceedStep1 =
+    name.trim().length > 0 && birthYear >= 2005 && birthYear <= currentYear;
 
-        <div className="field">
-          <label>Name</label>
-          <input type="text" required value={kid.name} onChange={(e) => setKidField('name', e.target.value)} />
-        </div>
+  const yearOptions = Array.from({ length: 20 }, (_, i) => currentYear - i);
 
-        <div className="field">
-          <label>Age</label>
-          <input type="number" required min={1} max={18} value={kid.age}
-            onChange={(e) => setKidField('age', Number(e.target.value))} style={{ maxWidth: 80 }} />
-        </div>
+  // ── Step panels ──────────────────────────────────────────────────────────
 
-        <div className="field">
-          <label>Allergies <span className="muted">(comma-separated)</span></label>
-          <input type="text" value={allergiesRaw} onChange={(e) => setAllergiesRaw(e.target.value)}
-            placeholder="e.g. peanuts, tree nuts" />
-        </div>
+  const step1 = (
+    <div className="flex flex-col gap-4">
+      <h2 className="font-fredoka text-xl font-bold text-moku-dark text-center leading-tight">
+        {isEdit ? "Update your kid's info" : "Tell us about your kid!"}
+      </h2>
 
-        <div className="field">
-          <label>Dislikes <span className="muted">(comma-separated)</span></label>
-          <input type="text" value={dislikesRaw} onChange={(e) => setDislikesRaw(e.target.value)}
-            placeholder="e.g. mushrooms, onions" />
-        </div>
-
-        <div className="field">
-          <label>Likes <span className="muted">(comma-separated)</span></label>
-          <input type="text" value={likesRaw} onChange={(e) => setLikesRaw(e.target.value)}
-            placeholder="e.g. pasta, apples, hummus" />
-        </div>
-
-        <div className="field">
-          <label>Repetition preference</label>
-          <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-            {(['same-every-day', 'some-variety', 'never-repeat'] as const).map((v) => (
-              <label key={v} style={{ fontWeight: 'normal', display: 'flex', gap: '0.4rem', cursor: 'pointer' }}>
-                <input type="radio" name="repetition" value={v} checked={kid.repetitionPreference === v}
-                  onChange={() => setKidField('repetitionPreference', v)} />
-                {v === 'same-every-day' ? 'Same every day' : v === 'some-variety' ? 'Some variety' : 'Never repeat'}
-              </label>
-            ))}
+      <div className="bg-white rounded-2xl moku-border moku-shadow p-4 flex flex-col gap-4">
+        {/* Avatar + name row */}
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-moku-blue/25 moku-border flex-shrink-0 flex items-center justify-center text-2xl select-none">
+            🧒
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+              Kid's name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Mia"
+              className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-moku-dark placeholder:text-slate-300 bg-moku-beige/40"
+            />
           </div>
         </div>
 
-        <div className="field">
-          <label style={{ fontWeight: 'normal', display: 'flex', gap: '0.4rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={kid.isVegetarian}
-              onChange={(e) => setKidField('isVegetarian', e.target.checked)} />
-            Vegetarian
+        {/* Birth date */}
+        <div>
+          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1.5">
+            Date of birth
           </label>
-        </div>
-
-        <div className="field">
-          <label style={{ fontWeight: 'normal', display: 'flex', gap: '0.4rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={kid.isVegan}
-              onChange={(e) => setKidField('isVegan', e.target.checked)} />
-            Vegan
-          </label>
-        </div>
-
-        <div className="field">
-          <label style={{ fontWeight: 'normal', display: 'flex', gap: '0.4rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={kid.needsSnacks}
-              onChange={(e) => setKidField('needsSnacks', e.target.checked)} />
-            Pack snacks
-          </label>
-        </div>
-
-        {kid.needsSnacks && (
-          <>
-            <div className="field">
-              <label>Snacks per day</label>
-              <input type="number" min={1} max={5} value={kid.snacksPerDay}
-                onChange={(e) => setKidField('snacksPerDay', Number(e.target.value))} style={{ maxWidth: 80 }} />
-            </div>
-            <div className="field">
-              <label>Max packaged snacks per day</label>
-              <input type="number" min={0} max={5} value={kid.maxPackagedSnacksPerDay}
-                onChange={(e) => setKidField('maxPackagedSnacksPerDay', Number(e.target.value))} style={{ maxWidth: 80 }} />
-            </div>
-          </>
-        )}
-
-        <div className="field">
-          <label>School / camp rules <span className="muted">(optional)</span></label>
-          <textarea rows={2} value={kid.schoolOrCampRules}
-            onChange={(e) => setKidField('schoolOrCampRules', e.target.value)}
-            placeholder="e.g. nut-free facility, no glass containers, no microwave access" />
-        </div>
-
-        <div className="field">
-          <label>Other dietary notes <span className="muted">(optional)</span></label>
-          <textarea rows={2} value={kid.otherDietaryNotes}
-            onChange={(e) => setKidField('otherDietaryNotes', e.target.value)} />
-        </div>
-
-        <hr className="section-divider" />
-        <h2>Your preferences</h2>
-
-        <div className="field">
-          <label>Household size <span className="muted">(adults + kids eating from this grocery list)</span></label>
-          <input type="number" required min={1} max={20} value={prefs.householdSize}
-            onChange={(e) => setPrefsField('householdSize', Number(e.target.value))} style={{ maxWidth: 80 }} />
-        </div>
-
-        <div className="field">
-          <label>Weekly budget <span className="muted">(optional, in $)</span></label>
-          <input type="number" min={0} value={prefs.weeklyBudget ?? ''}
-            onChange={(e) => setPrefsField('weeklyBudget', e.target.value ? Number(e.target.value) : null)}
-            style={{ maxWidth: 120 }} placeholder="no limit" />
-        </div>
-
-        <div className="field">
-          <label>Stores <span className="muted">(comma-separated)</span></label>
-          <input type="text" value={storesRaw} onChange={(e) => setStoresRaw(e.target.value)}
-            placeholder="e.g. Trader Joe's, Costco" />
-        </div>
-
-        <div className="field">
-          <label>Organic preference</label>
-          <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-            {(['always', 'when-possible', 'doesnt-matter', 'never'] as const).map((v) => (
-              <label key={v} style={{ fontWeight: 'normal', display: 'flex', gap: '0.4rem', cursor: 'pointer' }}>
-                <input type="radio" name="organic" value={v} checked={prefs.organic === v}
-                  onChange={() => setPrefsField('organic', v)} />
-                {v === 'always' ? 'Always' : v === 'when-possible' ? 'When possible' : v === 'doesnt-matter' ? "Doesn't matter" : 'Never'}
-              </label>
-            ))}
+          <div className="flex gap-2">
+            <select
+              value={birthMonth}
+              onChange={(e) => setBirthMonth(Number(e.target.value))}
+              className="flex-1 rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-moku-dark bg-moku-beige/40 appearance-none cursor-pointer"
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <select
+              value={birthYear}
+              onChange={(e) => setBirthYear(Number(e.target.value))}
+              className="w-28 rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-moku-dark bg-moku-beige/40 appearance-none cursor-pointer"
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
           </div>
+          {name && canProceedStep1 && (
+            <p className="mt-1.5 text-xs text-slate-400 font-fredoka">
+              {name} is {ageFromBirth(birthMonth, birthYear)} years old
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const step2 = (
+    <div className="flex flex-col gap-4">
+      <h2 className="font-fredoka text-xl font-bold text-moku-dark text-center leading-tight">
+        Any dietary restrictions?{' '}
+        <span className="font-normal text-slate-400 text-base">(optional)</span>
+      </h2>
+
+      <div className="bg-white rounded-2xl moku-border moku-shadow p-4">
+        <div className="grid grid-cols-3 gap-2">
+          {DIETARY_OPTIONS.map((opt) => {
+            const selected = restrictions.has(opt.id);
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => toggleRestriction(opt.id)}
+                className={`rounded-xl border-2 px-2 py-2.5 text-xs font-fredoka font-bold leading-tight text-center transition-all moku-press ${
+                  selected
+                    ? 'bg-moku-dark text-white border-moku-dark shadow-[2px_2px_0px_rgba(19,78,158,0.4)]'
+                    : 'bg-moku-beige/50 text-moku-dark border-moku-dark/25 hover:border-moku-dark/60'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  const step3 = (
+    <div className="flex flex-col gap-4">
+      <h2 className="font-fredoka text-xl font-bold text-moku-dark text-center leading-tight">
+        A few more details
+        <br />
+        <span className="font-normal text-slate-400 text-base">about {name || 'your kid'}!</span>
+      </h2>
+
+      <div className="bg-white rounded-2xl moku-border moku-shadow p-4 flex flex-col gap-4">
+        <div>
+          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+            Favourite foods
+            <span className="font-normal text-slate-400 ml-1">(comma-separated, optional)</span>
+          </label>
+          <input
+            type="text"
+            value={likesRaw}
+            onChange={(e) => setLikesRaw(e.target.value)}
+            placeholder="e.g. pasta, strawberries, hummus"
+            className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka text-moku-dark placeholder:text-slate-300 bg-moku-beige/40"
+          />
         </div>
 
-        <div className="field">
-          <label>Other notes <span className="muted">(optional)</span></label>
-          <textarea rows={2} value={prefs.otherNotes}
-            onChange={(e) => setPrefsField('otherNotes', e.target.value)} />
+        <div>
+          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+            Foods to avoid
+            <span className="font-normal text-slate-400 ml-1">(comma-separated, optional)</span>
+          </label>
+          <input
+            type="text"
+            value={dislikesRaw}
+            onChange={(e) => setDislikesRaw(e.target.value)}
+            placeholder="e.g. mushrooms, onions"
+            className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka text-moku-dark placeholder:text-slate-300 bg-moku-beige/40"
+          />
         </div>
 
-        <button type="submit" className="primary">
-          {isEdit ? 'Save changes' : 'Get started →'}
+        <div>
+          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+            School / camp rules
+            <span className="font-normal text-slate-400 ml-1">(optional)</span>
+          </label>
+          <textarea
+            rows={2}
+            value={schoolRules}
+            onChange={(e) => setSchoolRules(e.target.value)}
+            placeholder="e.g. nut-free, no glass, no microwave"
+            className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka text-moku-dark placeholder:text-slate-300 bg-moku-beige/40 resize-none"
+          />
+        </div>
+
+        {/* Snacks toggle */}
+        <button
+          type="button"
+          onClick={() => setNeedsSnacks((v) => !v)}
+          className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-sm font-fredoka font-bold transition-all moku-press ${
+            needsSnacks
+              ? 'bg-moku-yellow/30 border-moku-yellow text-moku-dark'
+              : 'bg-moku-beige/50 border-moku-dark/25 text-slate-400'
+          }`}
+        >
+          <span className="text-lg">{needsSnacks ? '🍎' : '➕'}</span>
+          <span>{needsSnacks ? 'Pack snacks too!' : 'Add snacks'}</span>
+          <span
+            className={`ml-auto w-10 h-5 rounded-full border-2 border-moku-dark/30 relative transition-colors ${
+              needsSnacks ? 'bg-moku-dark' : 'bg-moku-dark/15'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white border border-moku-dark/30 shadow transition-all ${
+                needsSnacks ? 'left-[calc(100%-1rem)]' : 'left-0.5'
+              }`}
+            />
+          </span>
         </button>
-      </form>
+      </div>
+    </div>
+  );
+
+  const stepContent = [step1, step2, step3][step - 1];
+
+  const isLastStep = step === 3;
+  const canProceed = step === 1 ? canProceedStep1 : true;
+
+  // ── Nav buttons ───────────────────────────────────────────────────────────
+
+  const navButtons = (
+    <div className={`flex gap-3 ${step === 1 ? 'justify-center' : ''}`}>
+      {step > 1 && (
+        <button
+          type="button"
+          onClick={() => setStep((s) => s - 1)}
+          className="flex-1 rounded-full border-[2.5px] border-moku-dark bg-white text-moku-dark font-fredoka font-bold text-base py-3 moku-press hover:bg-moku-beige"
+        >
+          Back
+        </button>
+      )}
+      <button
+        type="button"
+        disabled={!canProceed || saving}
+        onClick={() => {
+          if (isLastStep) handleFinish();
+          else setStep((s) => s + 1);
+        }}
+        className={`flex-1 rounded-full border-[2.5px] border-moku-dark font-fredoka font-bold text-base py-3 moku-press transition-opacity ${
+          canProceed && !saving
+            ? 'bg-moku-yellow text-moku-dark moku-shadow'
+            : 'bg-moku-yellow/40 text-moku-dark/40 cursor-not-allowed'
+        }`}
+      >
+        {saving ? 'Saving…' : isLastStep ? (isEdit ? 'Save changes' : 'Get started!') : 'Next'}
+      </button>
+    </div>
+  );
+
+  // ── Compact mode (embedded in ProfileTab) ────────────────────────────────
+
+  if (compact) {
+    return (
+      <div className="flex flex-col gap-4">
+        <ProgressIndicator step={step} />
+        {stepContent}
+        {navButtons}
+      </div>
+    );
+  }
+
+  // ── Full-screen onboarding ────────────────────────────────────────────────
+
+  return (
+    <div className="craft-bg min-h-screen flex flex-col">
+      {/* Logo */}
+      <div className="flex justify-center pt-8 pb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-moku-yellow moku-border rounded-xl p-1.5 moku-shadow-sm flex items-center justify-center -rotate-3">
+            <svg className="w-7 h-7" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="15" y="25" width="70" height="60" rx="15" fill="#f36c57" stroke="#134e9e" strokeWidth="7" />
+              <rect x="35" y="10" width="30" height="15" rx="5" fill="#f9a65d" stroke="#134e9e" strokeWidth="7" />
+              <rect x="25" y="35" width="50" height="40" rx="8" fill="#fff" stroke="#134e9e" strokeWidth="4" />
+              <circle cx="40" cy="50" r="5.5" fill="#134e9e" />
+              <circle cx="60" cy="50" r="5.5" fill="#134e9e" />
+              <path d="M43,62 Q50,67 57,62" stroke="#134e9e" strokeWidth="4" strokeLinecap="round" fill="none" />
+            </svg>
+          </div>
+          <h1 className="font-fredoka text-2xl font-bold text-moku-dark tracking-wide">
+            BentoBot!
+          </h1>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div className="flex justify-center mb-6">
+        <ProgressIndicator step={step} />
+      </div>
+
+      {/* Teal content area */}
+      <div className="flex-1 bg-moku-blue/20 rounded-t-[2rem] mx-0 px-5 pt-6 pb-8 flex flex-col gap-6">
+        {stepContent}
+        {navButtons}
+      </div>
     </div>
   );
 }
