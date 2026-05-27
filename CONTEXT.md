@@ -94,6 +94,7 @@ Migrations live in `supabase/migrations/`.
 2. Plan history view — browse and compare past weeks.
 3. Voice input surface — `ConversationalChat` is built but not wired into the wizard UI yet.
 4. Export grocery list — share as text or copy to clipboard.
+5. Security hardening (in-flight PRs): API body validation on `/api/anthropic`, MIME type whitelist on `/api/transcribe`, audio recording duration cap, Upstash rate limiting on both endpoints (requires Upstash for Redis provisioned via Vercel Marketplace on lunchapp project).
 
 ## Known Gaps / Mocked
 
