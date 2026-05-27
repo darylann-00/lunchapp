@@ -1,4 +1,9 @@
+import { requireAuth } from './_auth';
+
 export async function POST(request: Request): Promise<Response> {
+  const auth = await requireAuth(request);
+  if (!auth.ok) return auth.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });

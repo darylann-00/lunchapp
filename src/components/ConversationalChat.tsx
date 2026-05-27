@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { getAuthHeader } from '../lib/ai';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -83,7 +84,8 @@ export default function ConversationalChat({
         try {
           const form = new FormData();
           form.append('audio', blob, 'recording.webm');
-          const res = await fetch('/api/transcribe', { method: 'POST', body: form });
+          const authHeader = await getAuthHeader();
+          const res = await fetch('/api/transcribe', { method: 'POST', body: form, headers: authHeader });
           if (!res.ok) throw new Error('Transcription failed');
           const data = await res.json() as { transcript: string };
           setInput((prev) => prev ? `${prev} ${data.transcript}` : data.transcript);
