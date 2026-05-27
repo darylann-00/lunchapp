@@ -17,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   const sanitized = {
     ...raw,
     model: 'claude-sonnet-4-6',
-    max_tokens: Math.min(typeof raw.max_tokens === 'number' ? raw.max_tokens : 4096, 4096),
+    max_tokens: typeof raw.max_tokens === 'number' ? Math.min(raw.max_tokens, 16384) : 4096,
   };
 
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -26,6 +26,7 @@ export async function POST(request: Request): Promise<Response> {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'prompt-caching-2024-07-31',
     },
     body: JSON.stringify(sanitized),
   });

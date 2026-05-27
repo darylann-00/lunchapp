@@ -72,7 +72,7 @@ export async function parseWeeklyNotes(
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
-    system: `You are helping a parent plan school/camp lunches for their kid. The parent has shared free-text notes about this week. Extract a structured summary.
+    system: [{ type: 'text' as const, text: `You are helping a parent plan school/camp lunches for their kid. The parent has shared free-text notes about this week. Extract a structured summary.
 
 Output ONLY a valid JSON object, no preamble, no markdown:
 {
@@ -82,7 +82,7 @@ Output ONLY a valid JSON object, no preamble, no markdown:
   "prepTimeAvailable": "low" | "medium" | "high"
 }
 
-Use the day checkboxes provided as the source of truth for daysNeeded — only override if the user explicitly contradicts them in their notes. Default prepTimeAvailable to "medium" if not stated. specialNotes captures anything not covered by the other fields (activities, things the kid asked for, repetition preferences for this specific week).`,
+Use the day checkboxes provided as the source of truth for daysNeeded — only override if the user explicitly contradicts them in their notes. Default prepTimeAvailable to "medium" if not stated. specialNotes captures anything not covered by the other fields (activities, things the kid asked for, repetition preferences for this specific week).`, cache_control: { type: 'ephemeral' as const } }],
     messages: [
       ...(corrective
         ? [{ role: 'user' as const, content: corrective }]
@@ -107,7 +107,7 @@ export async function generateWeeklyPlan(
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 8192,
-    system: `You are a meal planning assistant for busy parents packing school and camp lunches.
+    system: [{ type: 'text' as const, text: `You are a meal planning assistant for busy parents packing school and camp lunches.
 Your north star: fresh, nutritious food should be simple, affordable, and doable
 even when life is busy and picky eaters are involved. Not Pinterest-perfect. Real life.
 
@@ -167,7 +167,7 @@ Output ONLY a valid JSON object, no preamble, no markdown:
       "snacks": [ /* same dish shape */ ]
     }
   ]
-}`,
+}`, cache_control: { type: 'ephemeral' as const } }],
     messages: [
       ...(corrective
         ? [{ role: 'user' as const, content: corrective }]
@@ -221,7 +221,7 @@ export async function generateGroceryList(
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: `You are building a grocery shopping list from approved weekly lunch plans. Walk every ingredient in every dish (lunches and snacks) across all days.
+    system: [{ type: 'text' as const, text: `You are building a grocery shopping list from approved weekly lunch plans. Walk every ingredient in every dish (lunches and snacks) across all days.
 
 Rules:
 1. Deduplicate by ingredient name. Sum quantities where units match; list separate entries when units differ.
@@ -232,7 +232,7 @@ Rules:
 Output ONLY a valid JSON array, no preamble, no markdown:
 [
   { "name": "string", "quantity": "string", "unit": "string", "category": "string", "forKids": ["string"] }
-]`,
+]`, cache_control: { type: 'ephemeral' as const } }],
     messages: [
       ...(corrective
         ? [{ role: 'user' as const, content: corrective }]
@@ -264,7 +264,7 @@ export async function regenerateDish(args: {
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 2048,
-    system: `You are a meal planning assistant. Generate ONE replacement dish only. The week's session notes and other dishes are provided for context — match the prep-time constraint, respect activities mentioned for this day, and avoid duplicating other dishes already in the plan unless the kid's repetition preference allows it. Strongly prefer using ingredients that already appear elsewhere in the week's plan to minimize grocery waste for a small household.
+    system: [{ type: 'text' as const, text: `You are a meal planning assistant. Generate ONE replacement dish only. The week's session notes and other dishes are provided for context — match the prep-time constraint, respect activities mentioned for this day, and avoid duplicating other dishes already in the plan unless the kid's repetition preference allows it. Strongly prefer using ingredients that already appear elsewhere in the week's plan to minimize grocery waste for a small household.
 
 Same safety rules apply:
 1. Never include allergens listed in the kid's allergies.
@@ -272,7 +272,7 @@ Same safety rules apply:
 3. Respect dietary flags (vegetarian, vegan).
 
 Output the Dish JSON object directly — no wrapper, no array, no preamble:
-{ "id": "uuid", "name": "string", "description": "string", "prepNotes": "string", "isPackaged": false, "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] }`,
+{ "id": "uuid", "name": "string", "description": "string", "prepNotes": "string", "isPackaged": false, "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] }`, cache_control: { type: 'ephemeral' as const } }],
     messages: [
       ...(corrective
         ? [{ role: 'user' as const, content: corrective }]
