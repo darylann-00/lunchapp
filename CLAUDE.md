@@ -1,6 +1,25 @@
 # CLAUDE.md
 
-Orientation notes for working in this repo. Read before editing.
+## Role
+
+You are Daryl's expert SWE partner on this project. Daryl is a product manager — she understands the product deeply but will not know the technical implications of decisions unless you explain them. Always advise from an engineering standpoint: surface trade-offs, flag risks, and recommend best practices with a clear reason.
+
+## Session management
+
+Before starting any work, always read [CONTEXT.md](CONTEXT.md). Also read [design.md](design.md) for UI work, [architecture.md](architecture.md) for state/data work.
+
+Before opening a PR, sync with main: `git fetch origin && git rebase origin/main`. Resolve any conflicts, verify the build still passes, then open the PR.
+
+When Daryl says "wrap it up", push changes from this session to prod and update [CONTEXT.md](CONTEXT.md). In CONTEXT.md, only update existing sections in-place — rewrite the relevant sentence/row/bullet to reflect current state. Do not append what changed, what was fixed, or what was added this session. If something was completed, remove it from Next Priorities; if a status changed, edit the existing line. The file should read as a snapshot of now, not a history of changes.
+
+Before ending a session, summarize what changed and any decisions made.
+
+## Guardrails
+
+Don't refactor things that aren't broken without asking while working on a ticket.
+Ask before making architectural changes.
+
+---
 
 ## What this is
 
@@ -9,10 +28,10 @@ A single-kid weekly lunch planner. Parent enters a kid profile + free-text weekl
 ## Stack
 
 - **Vite 8 + React 19 + TypeScript** SPA (not Next.js — `src/pages/` is just a folder name, routing is `react-router-dom` v7)
-- **Vercel Functions** in `api/` (`anthropic.ts`, `transcribe.ts`) — plain `export async function POST(request: Request): Promise<Response>` style, no framework
-- **localStorage** for all persistence (no DB) via [src/lib/storage.ts](src/lib/storage.ts)
-- **Vitest + jsdom** for tests
-- **Plain CSS** with CSS variables in [src/index.css](src/index.css) — no Tailwind, no shadcn
+- **Vercel Functions** in `api/` (`anthropic.ts`, `transcribe.ts`, `_auth.ts`) — plain `export async function POST(request: Request): Promise<Response>` style, no framework
+- **Supabase** for all persistence (`profiles` + `weekly_plans` tables, PKCE auth) — no localStorage
+- **Vitest + jsdom** for unit tests; **Playwright** for e2e (`tests/e2e/`)
+- **Tailwind CSS v4** (Vite plugin) + custom moku utilities in [src/index.css](src/index.css) — no shadcn
 
 ## Commands
 
@@ -27,7 +46,16 @@ There is no Vercel-side `dev` proxy configured — `/api/*` calls only resolve o
 
 ## Env
 
-- `ANTHROPIC_API_KEY` — required on the server (read in [api/anthropic.ts](api/anthropic.ts) and [api/transcribe.ts](api/transcribe.ts)). Never expose to the client.
+Client-side (prefixed `VITE_`, safe to expose):
+- `VITE_SUPABASE_URL` — Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` — Supabase publishable anon key
+
+Server-side only (Vercel Functions, never expose to client):
+- `ANTHROPIC_API_KEY` — read in [api/anthropic.ts](api/anthropic.ts) and [api/transcribe.ts](api/transcribe.ts)
+- `SUPABASE_URL` — used by `api/_auth.ts` to validate JWTs server-side
+- `SUPABASE_ANON_KEY` — used by `api/_auth.ts`
+
+See [.env.example](.env.example) for the full list.
 
 ## Architecture
 
@@ -40,16 +68,15 @@ Browser (React SPA)
                                             api/transcribe.ts ──► same endpoint (audio doc + transcribe prompt)
 ```
 
-Routing ([src/App.tsx](src/App.tsx:35)):
+Routing ([src/App.tsx](src/App.tsx)):
 - `/onboarding` — first-run kid + parent prefs setup
-- `/` — Home: draft summary if one exists, plan history otherwise
-- `/plan/new` → `/plan/review` → `/plan/grocery` — three-step planning flow
-- `/settings`
+- `/` — `BentoShell` (3-tab: Lunch Plan / Grocery / Profile)
+- `*` — redirect to `/`
 - `RequireKid` wrapper redirects to `/onboarding` when no kids exist
 
 Domain types live in [src/types.ts](src/types.ts): `Kid`, `ParentPrefs`, `Dish`, `LunchItem`, `WeeklyPlan` (status: `'draft' | 'final'`), `GroceryItem`, `ParsedSession`.
 
-Plan lifecycle: at most one `draft` plan at a time. `finalizePlan` flips status to `final`. Grocery list is generated after review and stored on the plan.
+Plan lifecycle: one plan per `weekStartDate`. `savePlan` replaces any existing plan for that week. Grocery list is generated on demand and stored on the plan.
 
 ## AI layer ([src/lib/ai.ts](src/lib/ai.ts))
 
@@ -80,8 +107,8 @@ Conventions worth preserving:
 ## Things to be careful about
 
 - **Don't introduce Next.js patterns.** This is a Vite SPA. No App Router, no `'use client'`, no server components. `src/pages/` is convention only.
-- **Don't migrate storage to Vercel KV / Postgres / Blob.** localStorage is intentional for v0 — the QUOTA_EXCEEDED banner exists for a reason.
-- **Don't swap the Anthropic proxy for the AI SDK** unless the user asks. The current pattern (server proxy + `fetch('/api/anthropic')` + assistant-prefill JSON) is load-bearing for the parse-retry behavior.
-- **`vercel.json` SPA rewrite** sends everything that isn't `/api/*` to `index.html`. Keep that intact if you add routes.
+- **Don't swap the Anthropic proxy for the AI SDK** unless the user asks. The current pattern (server proxy + `fetch('/api/anthropic')` + client-side `callWithRetry`) is intentional.
+- **`vercel.json` SPA rewrite** sends everything that isn't `/api/*` to `index.html`. The CSP and security headers are also defined there — keep them intact if you add routes or new external origins.
 - **TypeScript is strict** (`tsc -b` runs in build). No `any` smuggling.
-- Single-kid assumption (`kids[0]`) is everywhere — if you generalize to multi-kid, audit `useKid`, the nav, and `RequireKid`.
+- **All API calls require auth.** `api/_auth.ts` → `requireAuth()` must be called at the top of every Vercel Function. Never skip it.
+- **Single-kid assumption** (`kids[0]`) is everywhere — if you generalize to multi-kid, audit `useKid`, the nav, and `RequireKid`.
