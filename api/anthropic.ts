@@ -1,8 +1,12 @@
 import { requireAuth } from './_auth.js';
+import { checkRateLimit } from './_ratelimit.js';
 
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireAuth(request);
   if (!auth.ok) return auth.response;
+
+  const limited = await checkRateLimit(auth.userId, 20);
+  if (limited) return limited;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
