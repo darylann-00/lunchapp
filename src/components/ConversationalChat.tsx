@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { getAuthHeader } from '../lib/ai';
 
+const MAX_RECORDING_SECONDS = 120;
+
 type Message = { role: 'user' | 'assistant'; content: string };
 
 export type ConversationalChatProps = {
@@ -29,6 +31,7 @@ export default function ConversationalChat({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const limitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
   const mediaRecorderSupported = typeof window !== 'undefined' && !!window.MediaRecorder;
@@ -38,6 +41,13 @@ export default function ConversationalChat({
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
+    };
+  }, []);
 
   const handleSend = () => {
     const text = input.trim();
@@ -67,6 +77,7 @@ export default function ConversationalChat({
       setRecordingState('recording');
       setRecordingSeconds(0);
       timerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
+      limitTimerRef.current = setTimeout(() => void stopRecording(), MAX_RECORDING_SECONDS * 1000);
     } catch {
       setTranscribeError('Microphone access denied — type your notes instead.');
     }
@@ -76,6 +87,7 @@ export default function ConversationalChat({
     const recorder = mediaRecorderRef.current;
     if (!recorder) return;
     if (timerRef.current) clearInterval(timerRef.current);
+    if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
 
     return new Promise<void>((resolve) => {
       recorder.onstop = async () => {
@@ -151,7 +163,7 @@ export default function ConversationalChat({
             recordingState === 'transcribing'
               ? 'Transcribing…'
               : recordingState === 'recording'
-              ? `Recording… ${recordingSeconds}s`
+              ? 'Recording…'
               : placeholder
           }
           disabled={recordingState !== 'idle'}
@@ -159,15 +171,27 @@ export default function ConversationalChat({
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
           {voiceEnabled && mediaRecorderSupported && (
-            <button
-              type="button"
-              onClick={handleVoiceButton}
-              disabled={recordingState === 'transcribing'}
-              title={recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
-              style={{ background: recordingState === 'recording' ? '#fee2e2' : undefined }}
-            >
-              {recordingState === 'recording' ? '⏹' : '🎤'}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleVoiceButton}
+                disabled={recordingState === 'transcribing'}
+                title={recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
+                style={{ background: recordingState === 'recording' ? '#fee2e2' : undefined }}
+              >
+                {recordingState === 'recording' ? '⏹' : '🎤'}
+              </button>
+              {recordingState === 'recording' && (() => {
+                const remaining = MAX_RECORDING_SECONDS - recordingSeconds;
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                return (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-muted)', textAlign: 'center', lineHeight: 1 }}>
+                    {m}:{s.toString().padStart(2, '0')} left
+                  </span>
+                );
+              })()}
+            </>
           )}
           {voiceEnabled && !mediaRecorderSupported && (
             <span className="muted" style={{ fontSize: '0.8rem' }}>Voice not supported in this browser</span>
