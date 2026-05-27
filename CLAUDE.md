@@ -14,6 +14,10 @@ When Daryl says "wrap it up", push changes from this session to prod and update 
 
 Before ending a session, summarize what changed and any decisions made.
 
+## Workflow
+
+For non-trivial implementation tasks: use the current model to research and produce a detailed plan (file paths, exact changes, acceptance criteria), then spawn Haiku agents (`model: "haiku"`) to execute each discrete subtask.
+
 ## Guardrails
 
 Don't refactor things that aren't broken without asking while working on a ticket.
