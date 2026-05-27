@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from './supabase';
 import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem, Dish, ParsedSession } from '../types';
 
 // ── Utilities ────────────────────────────────────────────────────────────────
@@ -23,10 +24,18 @@ export function safeParseJson<T>(text: string): T | null {
   }
 }
 
+export async function getAuthHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+  return { Authorization: `Bearer ${token}` };
+}
+
 async function callAnthropic(body: object): Promise<string> {
+  const authHeader = await getAuthHeader();
   const res = await fetch('/api/anthropic', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`API error ${res.status}`);

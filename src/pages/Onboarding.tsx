@@ -60,7 +60,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved }: Props)
   const setPrefsField = <K extends keyof PrefsDraft>(key: K, val: PrefsDraft[K]) =>
     setPrefs((prev) => ({ ...prev, [key]: val }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalKid: Kid = {
       ...kid,
@@ -73,8 +73,8 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved }: Props)
       ...prefs,
       stores: parseList(storesRaw),
     };
-    saveKid(finalKid);
-    saveParentPrefs(finalPrefs);
+    await saveKid(finalKid);
+    await saveParentPrefs(finalPrefs);
     if (onSaved) {
       onSaved();
     } else {

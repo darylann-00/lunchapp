@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
+import { useAuth } from './hooks/useAuth';
 import { useKid } from './hooks/useKid';
 import { useParentPrefs } from './hooks/useParentPrefs';
 import Onboarding from './pages/Onboarding';
+import SignIn from './pages/SignIn';
 import LunchPlanTab from './components/LunchPlanTab';
 import GroceryTab from './components/GroceryTab';
 import ProfileTab from './components/ProfileTab';
@@ -15,8 +17,16 @@ import './index.css';
 
 type Tab = 'lunch' | 'grocery' | 'profile';
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth();
+  if (loading) return null;
+  if (!session) return <Navigate to="/signin" replace />;
+  return <>{children}</>;
+}
+
 function RequireKid({ children }: { children: React.ReactNode }) {
-  const { kids } = useApp();
+  const { kids, loading } = useApp();
+  if (loading) return null;
   if (kids.length === 0) return <Navigate to="/onboarding" replace />;
   return <>{children}</>;
 }
@@ -237,8 +247,9 @@ export default function App() {
     <BrowserRouter>
       <AppProvider>
         <Routes>
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/" element={<RequireKid><BentoShell /></RequireKid>} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
+          <Route path="/" element={<RequireAuth><RequireKid><BentoShell /></RequireKid></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppProvider>
