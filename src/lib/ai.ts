@@ -1,6 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './supabase';
-import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem, Dish, ParsedSession } from '../types';
+import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem, Dish, ParsedSession, Ingredient, RecipeMealType } from '../types';
+import {
+  getCandidateRecipes,
+  saveAIRecipe,
+  recipeToDish,
+  autoTagRecipe,
+  type RecipeWithTags,
+} from './recipes';
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 
@@ -99,73 +106,63 @@ Parent's notes: ${notes || '(none)'}`,
   return callWithRetry<ParsedSession>(buildBody);
 }
 
-export async function generateWeeklyPlan(
+// ── Weekly plan: 3-stage flow ─────────────────────────────────────────────
+// 1. Pull a candidate pool from the recipe catalog (DB; allergen/dietary
+//    filtered, dislikes excluded, favorites + on-hand ingredients boosted).
+// 2. Ask Sonnet to pick a main + N snacks per day from that pool. Days the
+//    model can't fill (e.g. parent asks for an ingredient nothing in the pool
+//    covers) come back as gaps.
+// 3. For each gap, ask Sonnet to invent ONE dish for that day, save it to the
+//    user's private catalog, then hydrate everything as `LunchItem[]`.
+
+type DayPick = {
+  day: string;
+  mainRecipeId: string | null;
+  snackRecipeIds: string[];
+  gap?: string;
+};
+
+type Stage2Response = { days: DayPick[] };
+
+async function runPlanSelection(
   session: ParsedSession,
   kid: Kid,
-  parentPrefs: ParentPrefs
-): Promise<{ days: string[]; items: LunchItem[] }> {
+  parentPrefs: ParentPrefs,
+  candidates: RecipeWithTags[]
+): Promise<Stage2Response> {
+  const compactPool = candidates.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description ?? '',
+    mealType: r.mealType,
+    tags: r.tags,
+  }));
+
+  const snacksPerDay = kid.needsSnacks ? kid.snacksPerDay : 0;
+
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
-    max_tokens: 8192,
-    system: [{ type: 'text' as const, text: `You are a meal planning assistant for busy parents packing school and camp lunches.
-Your north star: fresh, nutritious food should be simple, affordable, and doable
-even when life is busy and picky eaters are involved. Not Pinterest-perfect. Real life.
+    max_tokens: 4096,
+    system: [{ type: 'text' as const, text: `You are a meal planning assistant. Pick recipes from a candidate pool to fill a week of lunches. Do NOT invent new recipes — only use IDs from the pool. Do NOT generate a grocery list.
 
-Generate a complete weekly lunch plan. Do NOT generate a grocery list — that happens
-in a separate step.
+## Selection rules (in priority order)
 
-## Lunch-Building Formula
-Apply this structure to every day:
-  1. MAIN IDEA — One anchor item to build around: sandwich, wrap, quesadilla, thermos
-     leftovers, bento-style finger foods, or a DIY "lunchable" (homemade copycat).
-  2. VEGGIE — One or two servings of something crunchy (carrots, cucumbers, cherry
-     tomatoes, snap peas). If the main isn't veggie-centric, always add a dip
-     (hummus, yogurt ranch, guac) to make it more appealing.
-  3. FRUIT — One serving of fresh or whole fruit for color, fiber, and vitamins.
-  4. TREAT — Something the kid loves: a homemade cookie, a square of chocolate, a
-     brownie bite, or a simple packaged treat. Don't skip this — it matters.
-  5. SNACKS — Approximately the configured number per day; flex as needed for the
-     kid's age and appetite.
+1. SAFETY first: never pick a recipe whose tags or name conflict with the kid's allergies, school/camp rules, or dietary flags. The pool has been pre-filtered but stay alert.
+2. Match the kid's repetition preference and the parent's prep-time constraint for the week.
+3. Use ingredients the parent mentioned having on hand when possible — the pool is already sorted with those boosted.
+4. Beat the sandwich rut: rotate formats across the week unless the repetition preference says otherwise. Tag categories like "format" and "ingredient" will help.
+5. Minimize unique ingredients across the week. Reuse proteins/produce/dairy across days when sensible (household size: ${parentPrefs.householdSize}).
+6. Each day must have exactly one main and ${snacksPerDay} snack(s) (or report a gap).
 
-## Guiding Principles (apply throughout)
-- Real food over processed. Favor whole, minimally processed ingredients. Protein
-  from real sources: chicken, eggs, beef, beans, cheese, seafood — not fake meat.
-- Assembly, not cooking. Target 10 minutes or less to assemble the morning of
-  (or night before). No special gadgets, elaborate steps, or intricate shapes.
-- Leftover logic. Dinner leftovers are a legitimate, encouraged lunch. Pack them
-  in a thermos if there's no microwave access.
-- Ingredient reuse. Create as many different lunches as possible from one core
-  ingredient. Minimize unique ingredients across the week to reduce waste.
-- Beat the sandwich rut. Rotate formats — don't default to sandwiches every day.
-- Pack what they'll eat. A lunch that comes home uneaten is not a win.
+## Gap handling
+If you can't find a good main for a day — for example the parent mentioned a specific ingredient and no pool recipe uses it as the anchor — return that day as { "day": "...", "mainRecipeId": null, "snackRecipeIds": [...], "gap": "short reason, e.g. 'no candidate uses peas as anchor'" }. We will invent a recipe to fill it in a follow-up step. Gap snack slots are fine — just leave snackRecipeIds shorter for that day with a gap reason mentioning snacks.
 
-## Rules (in priority order)
-
-1. SAFETY: Never include any allergen listed in the kid's allergies. Respect
-   school/camp rules absolutely. No exceptions.
-2. Respect dietary flags (vegetarian, vegan).
-3. The kid's saved repetition preference is a baseline. Parent's notes override it.
-4. Respect the parent's prep-time constraint for this week.
-5. Stay within budget if provided.
-6. Cap packaged snacks at the daily maximum.
-7. Provide approximately the configured number of snacks per day.
-8. Default style: practical, nutritious, well-rounded, kid-friendly.
-9. Use ingredients the parent mentioned having on hand when possible.
-10. Minimize unique ingredients across the whole week. The household has ${parentPrefs.householdSize} people total. Reuse proteins, produce, and dairy across multiple days in different preparations so nothing goes to waste. Each perishable should appear in at least 2 days.
-11. Each lunch and snack must include: name, one-sentence description, full prep steps in prepNotes, and ingredients with quantities and units.
+## Output
 
 Output ONLY a valid JSON object, no preamble, no markdown:
 {
-  "days": ["Monday", ...],
-  "items": [
-    {
-      "kidId": "string",
-      "day": "string",
-      "lunches": [
-        { "id": "uuid", "name": "string", "description": "string", "prepNotes": "string", "isPackaged": false, "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] }
-      ],
-      "snacks": [ /* same dish shape */ ]
-    }
+  "days": [
+    { "day": "Monday", "mainRecipeId": "uuid-from-pool", "snackRecipeIds": ["uuid", "uuid"] }
   ]
 }`, cache_control: { type: 'ephemeral' as const } }],
     messages: [
@@ -181,7 +178,76 @@ Parent preferences:
 ${JSON.stringify(parentPrefs, null, 2)}
 
 This week's context:
-- Days: ${session.daysNeeded.join(', ')}
+- Days to plan: ${session.daysNeeded.join(', ')}
+- On hand: ${session.ingredientsOnHand.join(', ') || 'nothing specified'}
+- Prep time: ${session.prepTimeAvailable}
+- Notes: ${session.specialNotes || 'none'}
+- Snacks per day: ${snacksPerDay}
+
+Candidate recipe pool (pick by id):
+${JSON.stringify(compactPool, null, 2)}`,
+      },
+    ],
+  });
+
+  const validate = (parsed: Stage2Response) => {
+    if (!parsed || !Array.isArray(parsed.days)) return false;
+    const returned = new Set(parsed.days.map((d) => d.day));
+    for (const d of session.daysNeeded) {
+      if (!returned.has(d)) return false;
+    }
+    return true;
+  };
+
+  return callWithRetry<Stage2Response>(buildBody, validate);
+}
+
+export async function generateRecipeForGap(args: {
+  kid: Kid;
+  parentPrefs: ParentPrefs;
+  session: ParsedSession;
+  day: string;
+  mealType: RecipeMealType;
+  gapReason: string;
+}): Promise<{ name: string; description: string; prepNotes: string; ingredients: Ingredient[]; mealType: RecipeMealType }> {
+  const { kid, parentPrefs, session, day, mealType, gapReason } = args;
+
+  type GapResponse = {
+    name: string;
+    description: string;
+    prepNotes: string;
+    ingredients: Ingredient[];
+  };
+
+  const buildBody = (corrective?: string) => ({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 2048,
+    system: [{ type: 'text' as const, text: `You are inventing ONE ${mealType === 'main' ? 'lunch main' : 'snack'} to fill a gap the catalog couldn't cover. Real life, not Pinterest. Assembly under 10 minutes if possible.
+
+## Rules (in priority order)
+1. SAFETY: never include any allergen listed in the kid's allergies. Respect school/camp rules absolutely.
+2. Respect dietary flags (vegetarian, vegan).
+3. Address the gap reason — that's why the catalog didn't have a fit.
+4. Match the parent's prep-time constraint for the week.
+5. Output one recipe, with name, one-sentence description, full prep steps in prepNotes, and ingredients with quantities and units.
+
+Output ONLY a valid JSON object, no preamble, no markdown:
+{ "name": "string", "description": "string", "prepNotes": "string", "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] }`, cache_control: { type: 'ephemeral' as const } }],
+    messages: [
+      ...(corrective
+        ? [{ role: 'user' as const, content: corrective }]
+        : []),
+      {
+        role: 'user' as const,
+        content: `Kid: ${kid.name}, age ${kid.age}
+Day: ${day}
+Meal type: ${mealType}
+Gap reason: ${gapReason}
+
+Kid profile: ${JSON.stringify(kid)}
+Parent prefs: ${JSON.stringify(parentPrefs)}
+
+This week's context:
 - On hand: ${session.ingredientsOnHand.join(', ') || 'nothing specified'}
 - Prep time: ${session.prepTimeAvailable}
 - Notes: ${session.specialNotes || 'none'}`,
@@ -189,26 +255,106 @@ This week's context:
     ],
   });
 
-  const validate = (parsed: { days: string[]; items: LunchItem[] }) => {
-    if (!Array.isArray(parsed.days) || !Array.isArray(parsed.items)) return false;
-    const requestedDays = new Set(session.daysNeeded);
-    const returnedDays = new Set(parsed.days);
-    for (const d of requestedDays) {
-      if (!returnedDays.has(d)) return false;
-    }
-    return true;
+  const validate = (parsed: GapResponse) =>
+    typeof parsed?.name === 'string' &&
+    typeof parsed?.prepNotes === 'string' &&
+    Array.isArray(parsed?.ingredients);
+
+  const parsed = await callWithRetry<GapResponse>(buildBody, validate);
+  return {
+    name: parsed.name,
+    description: parsed.description ?? '',
+    prepNotes: parsed.prepNotes,
+    ingredients: parsed.ingredients,
+    mealType,
   };
+}
 
-  const result = await callWithRetry<{ days: string[]; items: LunchItem[] }>(buildBody, validate);
+export async function generateWeeklyPlan(
+  session: ParsedSession,
+  kid: Kid,
+  parentPrefs: ParentPrefs
+): Promise<{ days: string[]; items: LunchItem[] }> {
+  // Stage 1 — retrieve candidate pool.
+  const candidates = await getCandidateRecipes(kid, parentPrefs, session);
+  const candidateById = new Map(candidates.map((r) => [r.id, r]));
 
-  result.items = result.items.map((item) => ({
-    ...item,
-    id: uuidv4(),
-    lunches: item.lunches.map((d) => ({ ...d, id: d.id || uuidv4() })),
-    snacks: item.snacks.map((s) => ({ ...s, id: s.id || uuidv4() })),
-  }));
+  // Stage 2 — let the model pick from the pool.
+  const selection = await runPlanSelection(session, kid, parentPrefs, candidates);
 
-  return result;
+  // Stage 3 — fill any gaps and assemble the final LunchItem[].
+  // Order: per-day, within each day main first then snacks. Gap fills are
+  // sequential so the API call order is deterministic and matches test stubs.
+  const snacksPerDay = kid.needsSnacks ? kid.snacksPerDay : 0;
+  const items: LunchItem[] = [];
+
+  for (const day of session.daysNeeded) {
+    const pick = selection.days.find((d) => d.day === day);
+
+    const lunches: Dish[] = [];
+    const snacks: Dish[] = [];
+
+    const mainCandidate = pick?.mainRecipeId ? candidateById.get(pick.mainRecipeId) : undefined;
+    if (mainCandidate) {
+      lunches.push(recipeToDish(mainCandidate));
+    } else {
+      const reason = pick?.gap || (pick?.mainRecipeId ? 'AI returned an unknown recipe id' : 'no candidate selected');
+      const invented = await generateRecipeForGap({
+        kid,
+        parentPrefs,
+        session,
+        day,
+        mealType: 'main',
+        gapReason: reason,
+      });
+      const saved = await saveAIRecipe({
+        name: invented.name,
+        description: invented.description,
+        prepNotes: invented.prepNotes,
+        ingredients: invented.ingredients,
+        mealType: 'main',
+        tags: autoTagRecipe(invented.ingredients),
+      });
+      lunches.push(recipeToDish(saved));
+    }
+
+    const pickedSnacks = (pick?.snackRecipeIds ?? [])
+      .map((id) => candidateById.get(id))
+      .filter((r): r is RecipeWithTags => Boolean(r))
+      .slice(0, snacksPerDay);
+
+    for (const s of pickedSnacks) snacks.push(recipeToDish(s));
+
+    while (snacks.length < snacksPerDay) {
+      const invented = await generateRecipeForGap({
+        kid,
+        parentPrefs,
+        session,
+        day,
+        mealType: 'snack',
+        gapReason: pick?.gap ? `snack gap: ${pick.gap}` : 'not enough snacks selected from the pool',
+      });
+      const saved = await saveAIRecipe({
+        name: invented.name,
+        description: invented.description,
+        prepNotes: invented.prepNotes,
+        ingredients: invented.ingredients,
+        mealType: 'snack',
+        tags: autoTagRecipe(invented.ingredients),
+      });
+      snacks.push(recipeToDish(saved));
+    }
+
+    items.push({
+      id: uuidv4(),
+      kidId: kid.id,
+      day,
+      lunches,
+      snacks,
+    });
+  }
+
+  return { days: session.daysNeeded, items };
 }
 
 export async function generateGroceryList(
