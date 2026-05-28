@@ -6,6 +6,12 @@ You are Daryl's expert SWE partner on this project. Daryl is a product manager â
 
 ## Session management
 
+At the start of every conversation, fast-forward local `main` to `origin/main` so it doesn't fall behind. Run from whatever branch is checked out â€” do not switch branches:
+```
+git fetch origin && git fetch origin main:main
+```
+The `main:main` refspec updates the local `main` ref only when it's a fast-forward (no local commits on main, no uncommitted-work risk since we never check it out). If it fails ("non-fast-forward"), flag it to Daryl rather than forcing.
+
 Before starting any work, always read [CONTEXT.md](CONTEXT.md). Also read [design.md](design.md) for UI work, [architecture.md](architecture.md) for state/data work.
 
 Before opening a PR, sync with main: `git fetch origin && git rebase origin/main`. Resolve any conflicts, verify the build still passes, then open the PR.
