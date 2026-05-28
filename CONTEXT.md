@@ -83,17 +83,23 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 |-------|-------------|
 | `profiles` | `id` (auth user uuid PK), `kid` (jsonb), `parent_prefs` (jsonb) |
 | `weekly_plans` | `id` (uuid), `user_id`, `week_start_date` (date), `status`, `days` (text[]), `items` (jsonb), `grocery_list` (jsonb), unique on `(user_id, week_start_date)` |
+| `recipes` | `id` (uuid), `name`, `description`, `prep_notes`, `ingredients` (jsonb), `meal_type` (`'main' \| 'snack'`), `source` (`'curated' \| 'ai' \| 'user'`), `source_url`, `source_attribution`, `prep_time_minutes`, `created_by` (null = global, else user-private) |
+| `recipe_tags` | `id`, `name` (unique), `category` (`'dietary' \| 'format' \| 'ingredient' \| 'occasion'`) |
+| `recipe_tag_assignments` | `recipe_id`, `tag_id` (composite PK, many-to-many join) |
+| `recipe_feedback` | `user_id`, `recipe_id` (composite PK), `reaction` (`'like' \| 'dislike' \| 'favorite'`) |
 
-Migrations live in `supabase/migrations/`.
+Migrations live in `supabase/migrations/`. The recipe catalog is seeded from `scripts/seed/lunchbox_snack_recipes_ALL.csv` via `scripts/import_recipes.ts` (a one-time Claude-powered cleaner). Run `npm run import-recipes` to generate `scripts/seed/recipes_seed.json` for review, then `npm run import-recipes:apply` to write to Supabase (requires `SUPABASE_SERVICE_ROLE_KEY`).
 
 ---
 
 ## Next Priorities
 
-1. Multi-kid support — currently hard-coded to `kids[0]` everywhere.
-2. Plan history view — browse and compare past weeks.
-3. Voice input surface — `ConversationalChat` is built but not wired into the wizard UI yet.
-4. Export grocery list — share as text or copy to clipboard.
+1. Wire `generateWeeklyPlan` to the recipe catalog — switch from "AI generates from thin air" to "AI picks from candidate recipes + fills gaps." See [design plan in session history].
+2. Thumbs up / down / favorite UI on each dish (writes to `recipe_feedback`).
+3. Multi-kid support — currently hard-coded to `kids[0]` everywhere.
+4. Plan history view — browse and compare past weeks.
+5. Voice input surface — `ConversationalChat` is built but not wired into the wizard UI yet.
+6. Export grocery list — share as text or copy to clipboard.
 
 ## Known Gaps / Mocked
 

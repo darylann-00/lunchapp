@@ -151,9 +151,55 @@ weekly_plans (
   created_at       timestamptz,
   UNIQUE (user_id, week_start_date)
 )
+
+recipes (
+  id                  uuid PK default gen_random_uuid(),
+  name                text,
+  description         text,                       -- null until backfilled
+  prep_notes          text,
+  ingredients         jsonb,                      -- Ingredient[]
+  meal_type           text ('main' | 'snack'),
+  is_packaged         boolean default false,
+  source              text ('curated' | 'ai' | 'user'),
+  source_url          text,
+  source_attribution  text,                       -- e.g. 'Yummy Toddler Food'
+  prep_time_minutes   integer,
+  created_by          uuid → auth.users,          -- NULL = global; else user-private
+  created_at          timestamptz,
+  updated_at          timestamptz
+)
+
+recipe_tags (
+  id        uuid PK default gen_random_uuid(),
+  name      text UNIQUE,
+  category  text ('dietary' | 'format' | 'ingredient' | 'occasion')
+)
+
+recipe_tag_assignments (
+  recipe_id  uuid → recipes ON DELETE CASCADE,
+  tag_id     uuid → recipe_tags ON DELETE CASCADE,
+  PRIMARY KEY (recipe_id, tag_id)
+)
+
+recipe_feedback (
+  user_id     uuid → auth.users,
+  recipe_id   uuid → recipes ON DELETE CASCADE,
+  reaction    text ('like' | 'dislike' | 'favorite'),
+  created_at  timestamptz,
+  PRIMARY KEY (user_id, recipe_id)
+)
 ```
 
-RLS is enabled — see `supabase/migrations/20260526_enable_rls.sql`.
+RLS is enabled on all tables. See `supabase/migrations/20260526_enable_rls.sql` (profiles, weekly_plans) and `supabase/migrations/20260528_recipes.sql` (recipes + tags + feedback). Recipe-table policies: any authenticated user can SELECT global recipes (`created_by IS NULL`) or their own; INSERT/UPDATE/DELETE only their own. `recipe_tags` is read-only to clients (managed by the seed script via service role). `recipe_feedback` is owner-only.
+
+## Recipe seed script
+
+`scripts/import_recipes.ts` is a one-time Node script (not browser code). Two modes:
+
+- Default: reads `scripts/seed/lunchbox_snack_recipes_ALL.csv`, calls Claude per row to clean + tag + split multi-variants, writes `scripts/seed/recipes_seed.json` for review.
+- `--apply`: reads the JSON, upserts tags, inserts recipes (`source='curated'`, `created_by=null`), inserts tag assignments. Requires `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS.
+
+Run via `npm run import-recipes` then `npm run import-recipes:apply`. Tag vocabulary is fixed (see `TAG_CATEGORY_MAP` in the script) — Claude can only pick from that list.
 
 ---
 

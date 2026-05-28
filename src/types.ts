@@ -71,3 +71,43 @@ export type ParsedSession = {
   specialNotes: string;
   prepTimeAvailable: 'low' | 'medium' | 'high';
 };
+
+export type RecipeSource = 'curated' | 'ai' | 'user';
+export type RecipeMealType = 'main' | 'snack';
+export type RecipeReaction = 'like' | 'dislike' | 'favorite';
+export type TagCategory = 'dietary' | 'format' | 'ingredient' | 'occasion';
+
+export type Recipe = {
+  id: string;
+  name: string;
+  description: string | null;
+  prepNotes: string;
+  ingredients: Ingredient[];
+  mealType: RecipeMealType;
+  isPackaged: boolean;
+  source: RecipeSource;
+  sourceUrl: string | null;
+  sourceAttribution: string | null;
+  prepTimeMinutes: number | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RecipeTag = {
+  id: string;
+  name: string;
+  category: TagCategory;
+};
+
+export type RecipeTagAssignment = {
+  recipeId: string;
+  tagId: string;
+};
+
+export type RecipeFeedback = {
+  userId: string;
+  recipeId: string;
+  reaction: RecipeReaction;
+  createdAt: string;
+};
