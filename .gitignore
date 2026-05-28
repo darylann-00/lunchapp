@@ -27,3 +27,7 @@ playwright/.cache
 *.sln
 *.sw?
 .vercel
+
+# Generated recipe seed artifacts
+scripts/seed/recipes_seed.json
+scripts/seed/recipes_seed.failures.json

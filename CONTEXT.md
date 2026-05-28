@@ -53,7 +53,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **ProfileTab** (`src/components/ProfileTab.tsx`) — edit kid profile and parent prefs. "Reset all data" deletes rows from Supabase via `clearAll`.
 
-- **AI layer** (`src/lib/ai.ts`) — four exports: `parseWeeklyNotes`, `generateWeeklyPlan`, `generateGroceryList`, `regenerateDish`. All POST to `/api/anthropic` which requires a valid Supabase auth token.
+- **AI layer** (`src/lib/ai.ts` + `src/lib/recipes.ts`) — `generateWeeklyPlan` runs a 3-stage flow: Stage 1 pulls a candidate pool from the `recipes` catalog (allergens/dietary/dislikes filtered; favorites + on-hand ingredients boosted); Stage 2 asks Sonnet to pick a main + N snacks per day from that pool; Stage 3 invents and saves any gap recipes via `generateRecipeForGap` + `saveAIRecipe`. `parseWeeklyNotes`, `generateGroceryList`, `regenerateDish` remain catalog-unaware for now. All POST to `/api/anthropic` which requires a valid Supabase auth token.
 
 - **API auth** (`api/_auth.ts`) — `requireAuth` helper validates the Supabase JWT on every `/api/anthropic` and `/api/transcribe` request.
 
@@ -94,8 +94,8 @@ Migrations live in `supabase/migrations/`. The recipe catalog is seeded from `sc
 
 ## Next Priorities
 
-1. Wire `generateWeeklyPlan` to the recipe catalog — switch from "AI generates from thin air" to "AI picks from candidate recipes + fills gaps." See [design plan in session history].
-2. Thumbs up / down / favorite UI on each dish (writes to `recipe_feedback`).
+1. Thumbs up / down / favorite UI on each dish (writes to `recipe_feedback`).
+2. Update `regenerateDish` to also pull replacements from the catalog before falling back to AI.
 3. Multi-kid support — currently hard-coded to `kids[0]` everywhere.
 4. Plan history view — browse and compare past weeks.
 5. Voice input surface — `ConversationalChat` is built but not wired into the wizard UI yet.

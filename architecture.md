@@ -26,7 +26,8 @@ Read this when touching state, data, the AI layer, or non-trivial component wiri
     useParentPrefs.ts      — returns parentPrefs from context
     useAI.ts               — loading/error wrappers + per-item regenerate state
   /lib
-    ai.ts                  — four AI entry points + safeParseJson + callWithRetry
+    ai.ts                  — AI entry points + safeParseJson + callWithRetry; orchestrates the 3-stage weekly plan flow
+    recipes.ts             — catalog: getCandidateRecipes, autoTagRecipe, saveAIRecipe, recipeToDish
     supabase.ts            — Supabase client (PKCE, persistSession, autoRefreshToken)
     dateUtils.ts           — getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel
   types.ts                 — Kid, ParentPrefs, Dish, LunchItem, WeeklyPlan, GroceryItem, ParsedSession
@@ -85,7 +86,7 @@ storageError: string | null
 
 ---
 
-## AI Layer (`src/lib/ai.ts`)
+## AI Layer (`src/lib/ai.ts` + `src/lib/recipes.ts`)
 
 ### Entry points
 
@@ -93,8 +94,19 @@ storageError: string | null
 |----------|-------|--------|
 | `parseWeeklyNotes` | notes string, days[], kid, parentPrefs | `ParsedSession` |
 | `generateWeeklyPlan` | ParsedSession, kid, parentPrefs | `{ days, items: LunchItem[] }` |
+| `generateRecipeForGap` | kid, parentPrefs, session, day, mealType, gapReason | invented recipe payload |
 | `generateGroceryList` | WeeklyPlan[], kid, parentPrefs | `GroceryItem[]` |
 | `regenerateDish` | kid, parentPrefs, sessionNotes, day, mealType, currentDish, userNote, otherDishes | `Dish` |
+
+### Weekly plan: 3-stage flow
+
+`generateWeeklyPlan` orchestrates three stages. Its public signature is unchanged — internally:
+
+1. **Candidate retrieval** (`recipes.ts:getCandidateRecipes`, no AI). Pulls `recipes` rows (RLS scopes to global + user-owned), joins tag names, excludes recipes the user disliked, drops any whose `ingredients[].name` contains a kid allergy (substring match), filters by dietary flags via tags (vegan/vegetarian), then boosts favorites (+2) and on-hand-ingredient matches (+1) and trims to ~50 — split ~30 mains + ~20 snacks.
+2. **AI selection** (`ai.ts:runPlanSelection`). Sends Sonnet the kid/prefs/session plus a compact pool (`{ id, name, description, mealType, tags }` — no full ingredients) and asks it to output `{ days: [{ day, mainRecipeId, snackRecipeIds, gap? }] }`. Validates that every requested day comes back. Hallucinated IDs are dropped in Stage 3 and treated as gaps.
+3. **Gap-filling** (`ai.ts:generateRecipeForGap` → `recipes.ts:saveAIRecipe` → `recipeToDish`). For each missing main or snack, asks Sonnet to invent one recipe matching the gap reason, auto-tags it via `autoTagRecipe` (substring → controlled-vocab heuristic), saves it to `recipes` with `source='ai'` and `created_by=auth.uid()`, and hydrates as `Dish`. Picks that came from the pool are hydrated directly via `recipeToDish` (fresh `Dish.id` per plan instance).
+
+Safety is defense in depth: Stage 1 drops allergen-containing recipes at the data layer; Stage 2 and Stage 3 prompts both repeat the rules in priority order (allergens → school/camp rules → dietary flags).
 
 ### Key conventions
 
@@ -102,10 +114,11 @@ storageError: string | null
 - **No assistant-message prefills.** They return HTTP 400 on `claude-sonnet-4-6`. JSON-only output enforced via system prompt (see commit `dc6ae64`).
 - `safeParseJson` strips ` ``` ` fences, `//` line comments, and trailing commas before `JSON.parse`.
 - `callWithRetry` makes one corrective retry on parse/validation failure, then throws. No unbounded retries.
-- UUIDs for `LunchItem.id` and `Dish.id` are stamped client-side after generation.
+- UUIDs for `LunchItem.id` and `Dish.id` are stamped client-side. `recipeToDish` always stamps a fresh `Dish.id` so two days reusing the same recipe don't share an id.
 - Safety rules are encoded in prompts — allergens, vegetarian/vegan, school rules — priority order: safety first.
-- `generateWeeklyPlan` validates that all `session.daysNeeded` appear in the returned `days` array; triggers retry if not.
+- Stage 2 validates that all `session.daysNeeded` appear in the response; triggers retry if not.
 - `parseWeeklyNotes` exists but is **not called** in the current wizard path — `WizardOverlay` builds `ParsedSession` directly from its own state.
+- `regenerateDish` and `generateGroceryList` are catalog-unaware for now (next PR will fold `regenerateDish` into the catalog).
 
 ### API auth
 
