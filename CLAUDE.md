@@ -33,14 +33,14 @@ Ask before making architectural changes.
 
 ## What this is
 
-A single-kid weekly lunch planner. Parent enters a kid profile + free-text weekly notes; Claude parses the notes, generates a weekly lunch plan, lets the parent regenerate individual dishes, then builds a deduped grocery list. All client-side state, with two thin Vercel functions proxying Anthropic.
+A single-kid weekly lunch planner. Parent enters a kid profile + free-text weekly notes; Claude parses the notes, generates a weekly lunch plan, lets the parent regenerate individual dishes, then builds a deduped grocery list. Auth and persistence via Supabase; two thin Vercel functions proxy Anthropic.
 
 ## Stack
 
 - **Vite 8 + React 19 + TypeScript** SPA (not Next.js — `src/pages/` is just a folder name, routing is `react-router-dom` v7)
 - **Vercel Functions** in `api/` (`anthropic.ts`, `transcribe.ts`, `_auth.ts`) — plain `export async function POST(request: Request): Promise<Response>` style, no framework
 - **Supabase** for all persistence (`profiles` + `weekly_plans` tables, PKCE auth) — no localStorage
-- **Vitest + jsdom** for unit tests; **Playwright** for e2e (`tests/e2e/`)
+- **Vitest + jsdom** for unit tests (scoped to `src/**`); add `.env.test` with dummy Supabase vars so `supabase.ts` doesn't throw at module load
 - **Tailwind CSS v4** (Vite plugin) + custom moku utilities in [src/index.css](src/index.css) — no shadcn
 
 ## Commands
@@ -49,7 +49,7 @@ A single-kid weekly lunch planner. Parent enters a kid profile + free-text weekl
 npm run dev      # vite dev server
 npm run build    # tsc -b && vite build
 npm run lint     # eslint .
-npm test         # vitest
+npm test         # vitest (scoped to src/**/*.{test,spec}.{ts,tsx})
 ```
 
 There is no Vercel-side `dev` proxy configured — `/api/*` calls only resolve on Vercel deploys or `vercel dev`. Plan accordingly when testing AI flows locally.
@@ -65,7 +65,11 @@ Server-side only (Vercel Functions, never expose to client):
 - `SUPABASE_URL` — used by `api/_auth.ts` to validate JWTs server-side
 - `SUPABASE_ANON_KEY` — used by `api/_auth.ts`
 
-See [.env.example](.env.example) for the full list.
+For tests, add a `.env.test` with dummy values so `src/lib/supabase.ts` doesn't throw at module load:
+```
+VITE_SUPABASE_URL=https://placeholder.supabase.co
+VITE_SUPABASE_ANON_KEY=placeholder_anon_key_for_tests
+```
 
 ## Architecture
 
@@ -106,9 +110,8 @@ Conventions worth preserving:
 
 ## State management
 
-- Single `AppContext` ([src/context/AppContext.tsx](src/context/AppContext.tsx)) is the source of truth; mirrors localStorage.
-- All writes go through `persist()` which catches `QUOTA_EXCEEDED` and surfaces `storageError` to the banner in [src/App.tsx:23](src/App.tsx:23).
-- Hooks ([src/hooks/](src/hooks/)) are thin wrappers over context: `useKid` (single-kid v0 — `kids[0]`), `useParentPrefs`, `usePlan`, `useAI` (loading/error wrapping + per-item regenerate state).
+- Single `AppContext` ([src/context/AppContext.tsx](src/context/AppContext.tsx)) is the source of truth; reads/writes via the Supabase client. Auth state tracked via `supabase.auth.onAuthStateChange`; data loads when a user session exists and clears on sign-out.
+- Hooks ([src/hooks/](src/hooks/)) are thin wrappers over context: `useKid` (single-kid v0 — `kids[0]`), `useParentPrefs`, `usePlan`, `useAI` (loading/error wrapping + per-item regenerate state), `useAuth`.
 
 ## Voice input
 

@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env.test
 test-results
 playwright-report
 playwright/.cache
@@ -25,3 +26,4 @@ playwright/.cache
 *.njsproj
 *.sln
 *.sw?
+.vercel
