@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "import-recipes": "tsx --env-file=.env scripts/import_recipes.ts",
+    "import-recipes:apply": "tsx --env-file=.env scripts/import_recipes.ts --apply"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.5",
@@ -23,6 +25,7 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.38.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
     "@testing-library/react": "^16.3.2",
@@ -31,11 +34,13 @@
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "csv-parse": "^5.5.6",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "tsx": "^4.19.1",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
