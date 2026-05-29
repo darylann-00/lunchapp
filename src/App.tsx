@@ -10,7 +10,7 @@ import LunchPlanTab from './components/LunchPlanTab';
 import GroceryTab from './components/GroceryTab';
 import ProfileTab from './components/ProfileTab';
 import WizardOverlay from './components/WizardOverlay';
-import EditDayModal from './components/EditDayModal';
+import PlanReviewPane from './components/PlanReviewPane';
 import PrepModal from './components/PrepModal';
 import { getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
 import { toggleStep } from './lib/prepSteps';
@@ -36,14 +36,14 @@ function RequireKid({ children }: { children: React.ReactNode }) {
 }
 
 function BentoShell() {
-  const { plans, updatePlanItems, setPrepProgress, storageError, backgroundGen, clearBackgroundGenError } = useApp();
+  const { plans, finalizePlan, setPrepProgress, storageError, backgroundGen, clearBackgroundGenError } = useApp();
   const { kid } = useKid();
   const { parentPrefs: prefs } = useParentPrefs();
 
   const [activeTab, setActiveTab] = useState<Tab>('lunch');
   const [weekStart, setWeekStart] = useState(getMondayISO(new Date()));
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<LunchItem | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [prepItem, setPrepItem] = useState<LunchItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -56,33 +56,20 @@ function BentoShell() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  // Watch backgroundGen and show toast when generation completes
+  // Watch backgroundGen — open review pane on success, show error toast on failure
   useEffect(() => {
     if (prevActive.current && !backgroundGen.active) {
-      const msg = backgroundGen.error
-        ? `⚠️ ${backgroundGen.error}`
-        : '✨ Plan saved for this week!';
-      setToast(msg);
-      const timeout = setTimeout(() => setToast(null), 2500);
       if (backgroundGen.error) {
+        setToast(`⚠️ ${backgroundGen.error}`);
+        const timeout = setTimeout(() => setToast(null), 2500);
         clearBackgroundGenError();
+        return () => clearTimeout(timeout);
+      } else {
+        setReviewOpen(true);
       }
-      return () => clearTimeout(timeout);
     }
     prevActive.current = backgroundGen.active;
   }, [backgroundGen.active, backgroundGen.error, clearBackgroundGenError]);
-
-  const handleSaveItem = (updated: LunchItem) => {
-    if (!activePlan) return;
-    const newItems = activePlan.items.map((i) => (i.id === updated.id ? updated : i));
-    updatePlanItems(activePlan.id, newItems);
-    showToast('✅ Day updated!');
-  };
-
-  // All dishes across the week (for regenerate context)
-  const allOtherDishes = activePlan
-    ? activePlan.items.flatMap((i) => [...i.lunches, ...i.snacks])
-    : [];
 
   const TAB_BTNS: { id: Tab; icon: IconDefinition; label: string }[] = [
     { id: 'lunch', icon: faBoxArchive, label: 'Lunch Plan' },
@@ -176,7 +163,7 @@ function BentoShell() {
             <LunchPlanTab
               plan={activePlan}
               weekStartDate={weekStart}
-              onEditDay={setEditingItem}
+              onEditPlan={() => setReviewOpen(true)}
               onPrepDay={setPrepItem}
               onGenerateClick={() => setWizardOpen(true)}
             />
@@ -222,19 +209,17 @@ function BentoShell() {
           />
         )}
 
-        {/* Edit day modal */}
-        {editingItem && kid && prefs && activePlan && (
-          <EditDayModal
-            item={editingItem}
+        {/* Plan review pane */}
+        {reviewOpen && activePlan && kid && prefs && (
+          <PlanReviewPane
+            plan={activePlan}
             kid={kid}
             prefs={prefs}
-            sessionNotes={activePlan.sessionNotes}
-            otherDishes={allOtherDishes.filter(
-              (d) => !editingItem.lunches.find((l) => l.id === d.id) &&
-                     !editingItem.snacks.find((s) => s.id === d.id)
-            )}
-            onSave={handleSaveItem}
-            onClose={() => setEditingItem(null)}
+            onFinalize={finalizePlan}
+            onClose={() => {
+              setReviewOpen(false);
+              showToast('✅ Plan saved!');
+            }}
           />
         )}
 

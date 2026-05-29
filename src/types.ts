@@ -36,6 +36,7 @@ export type Dish = {
   prepNotes: string;
   ingredients: Ingredient[];
   isPackaged: boolean;
+  prepTimeMinutes?: number | null;
 };
 
 export type LunchItem = {

@@ -12,6 +12,7 @@ type AppContextValue = {
   saveParentPrefs: (prefs: ParentPrefs) => Promise<void>;
   savePlan: (weekStartDate: string, days: string[], sessionNotes: string, items: LunchItem[]) => Promise<WeeklyPlan>;
   updatePlanItems: (planId: string, items: LunchItem[]) => Promise<void>;
+  finalizePlan: (planId: string, items: LunchItem[]) => Promise<void>;
   setGroceryList: (planId: string, list: GroceryItem[]) => Promise<void>;
   setPrepProgress: (planId: string, progress: Record<string, number[]>) => Promise<void>;
   deletePlan: (planId: string) => Promise<void>;
@@ -167,7 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .upsert({
           user_id: userId,
           week_start_date: weekStartDate,
-          status: 'final' as const,
+          status: 'draft' as const,
           days,
           items,
           grocery_list: null,
@@ -190,6 +191,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
     });
     setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, items } : p)));
+  }, [wrap]);
+
+  const finalizePlan = useCallback(async (planId: string, items: LunchItem[]) => {
+    await wrap(async () => {
+      const { error } = await supabase
+        .from('weekly_plans')
+        .update({ status: 'final', items })
+        .eq('id', planId);
+      if (error) throw error;
+    });
+    setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, status: 'final', items } : p)));
   }, [wrap]);
 
   const setGroceryList = useCallback(async (planId: string, list: GroceryItem[]) => {
@@ -275,6 +287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       saveParentPrefs,
       savePlan,
       updatePlanItems,
+      finalizePlan,
       setGroceryList,
       setPrepProgress,
       deletePlan,

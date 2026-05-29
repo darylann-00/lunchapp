@@ -16,12 +16,12 @@ const DAY_THEMES: Record<string, { badge: string; rowToday: string }> = {
 type Props = {
   plan: WeeklyPlan | null;
   weekStartDate: string;
-  onEditDay: (item: LunchItem) => void;
+  onEditPlan: () => void;
   onPrepDay: (item: LunchItem) => void;
   onGenerateClick: () => void;
 };
 
-export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onPrepDay, onGenerateClick }: Props) {
+export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDay, onGenerateClick }: Props) {
   const today = getTodayDayName();
   const showTodayHighlight = isCurrentWeek(weekStartDate);
 
@@ -46,9 +46,36 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onPrepDay
   const getItem = (day: string): LunchItem | undefined =>
     plan.items.find((i) => i.day === day);
 
+  const isDraft = plan.status === 'draft';
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="bg-white luncharoo-border rounded-3xl luncharoo-shadow overflow-hidden">
+      {/* Draft banner */}
+      {isDraft && (
+        <div className="bg-luncharoo-yellow/20 luncharoo-border rounded-2xl p-3 flex items-center justify-between">
+          <div>
+            <p className="font-fredoka text-sm font-bold text-luncharoo-dark">New plan ready!</p>
+            <p className="text-xs text-slate-500">Review and approve before it goes live.</p>
+          </div>
+          <button
+            onClick={onEditPlan}
+            className="bg-luncharoo-yellow text-luncharoo-dark font-fredoka font-bold text-xs px-4 py-2 rounded-xl luncharoo-border luncharoo-shadow-sm luncharoo-press"
+          >
+            Review Plan
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white luncharoo-border rounded-3xl luncharoo-shadow overflow-hidden relative">
+        {/* Edit pencil (finalized plans) */}
+        {!isDraft && (
+          <button
+            onClick={onEditPlan}
+            className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 luncharoo-border rounded-xl luncharoo-shadow-sm luncharoo-press flex items-center justify-center text-sm hover:bg-luncharoo-blue/10"
+          >
+            ✏️
+          </button>
+        )}
         <table className="w-full border-collapse table-fixed">
           <thead>
             <tr className="bg-luncharoo-blue text-white font-fredoka text-xs tracking-wider border-b-[3px] border-luncharoo-dark select-none">
@@ -83,10 +110,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onPrepDay
                   </td>
 
                   {/* Main lunch cell */}
-                  <td
-                    onClick={() => item && onEditDay(item)}
-                    className={`p-3 border-r-[2.5px] border-luncharoo-dark/20 align-top ${item ? 'cursor-pointer hover:bg-luncharoo-blue/5 group' : ''}`}
-                  >
+                  <td className="p-3 border-r-[2.5px] border-luncharoo-dark/20 align-top">
                     {item && item.lunches.length > 0 ? (
                       <div className="space-y-0.5">
                         {item.lunches.map((lunch) => {
@@ -134,10 +158,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onPrepDay
                   </td>
 
                   {/* Snacks cell */}
-                  <td
-                    onClick={() => item && onEditDay(item)}
-                    className={`p-3 align-top ${item ? 'cursor-pointer hover:bg-luncharoo-yellow/5 group' : ''}`}
-                  >
+                  <td className="p-3 align-top">
                     {item && item.snacks.length > 0 ? (
                       <div className="space-y-1.5">
                         {item.snacks.map((snack) => {
