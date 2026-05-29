@@ -109,6 +109,25 @@ export default function PrepModal({ item, prepProgress, onToggleStep, onClose }:
                     {isPrepped && <DoneStamp className="w-9 h-9" />}
                   </div>
 
+                  {/* Ingredients */}
+                  {dish.ingredients.length > 0 && (
+                    <div className="bg-luncharoo-beige/50 border border-luncharoo-dark/15 rounded-xl p-2.5 mb-2">
+                      <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider mb-1.5">
+                        🧺 Ingredients
+                      </p>
+                      <ul className="space-y-1">
+                        {dish.ingredients.map((ing, i) => (
+                          <li key={i} className="flex items-baseline gap-2 text-xs text-luncharoo-dark/90">
+                            <span className="font-semibold text-luncharoo-dark whitespace-nowrap">
+                              {[ing.quantity, ing.unit].filter(Boolean).join(' ')}
+                            </span>
+                            <span className="font-medium">{ing.name}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Checkbox rows */}
                   <div className="space-y-1.5">
                     {steps.map((step, stepIndex) => {

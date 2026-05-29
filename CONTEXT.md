@@ -47,7 +47,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan as a 3-column grid (Day / Main Lunch / Snacks). Everything is visible at once: sides render stacked under each main, snacks each in their own box, no truncation or "see more". Tapping a row opens EditDayModal; tapping the day pill opens PrepModal. Fully-prepped dishes get a strikethrough + DONE stamp. Empty state prompts the wizard.
 
-- **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish's `prepNotes` is split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`).
+- **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish shows its ingredients (quantity + unit + name) followed by its `prepNotes` split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`).
 
 - **EditDayModal** (`src/components/EditDayModal.tsx`) — regenerates individual lunches or snacks with a note via `regenerateDish`.
 
