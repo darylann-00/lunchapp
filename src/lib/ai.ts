@@ -158,7 +158,12 @@ async function runPlanSelection(
 4. Beat the sandwich rut: rotate formats across the week unless the repetition preference says otherwise. Tag categories like "format" and "ingredient" will help.
 5. Minimize unique ingredients across the week. Reuse proteins/produce/dairy across days when sensible (household size: ${parentPrefs.householdSize}).
 6. Each day must have exactly one main, ${SIDES_PER_DAY} side(s), and ${snacksPerDay} snack(s) (or report a gap).
-7. For sides, pick items that complement the main and round out the lunchbox — add fruit, veg, dairy, or crackers the main is missing nutritionally.
+7. Sides and snacks come from grocery packages that cover many servings (a bag of apples, a box of crackers, a tub of yogurt), so a single purchase naturally spans several days. Don't pick a brand-new side/snack for every day — that buys far more than gets eaten. Instead choose a small rotating set and reuse each item across 2–3 days, sized to how the kid tolerates repetition:
+   - "same-every-day": ~1–2 sides and ~1–2 snacks for the whole week.
+   - "some-variety" (or unspecified): ~2–3 sides and ~2–3 snacks for the week, each repeating across 2–3 days, so the kid sees variety without a different item daily.
+   - "never-repeat": vary freely — accept the larger grocery list, that's the explicit preference.
+   Respect maxPackagedSnacksPerDay regardless. Keep the kid's repetition preference (field: repetitionPreference="${kid.repetitionPreference}") as the deciding factor.
+8. For sides, pick items that complement the main and round out the lunchbox — add fruit, veg, dairy, or crackers the main is missing nutritionally.
 
 ## Gap handling
 If you can't find a good main for a day — for example the parent mentioned a specific ingredient and no pool recipe uses it as the anchor — return that day as { "day": "...", "mainRecipeId": null, "sideRecipeIds": [...], "snackRecipeIds": [...], "gap": "short reason, e.g. 'no candidate uses peas as anchor'" }. We will invent a recipe to fill it in a follow-up step. Gap snack or side slots are fine — just leave those arrays shorter for that day with a gap reason mentioning snacks/sides.
