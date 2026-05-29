@@ -1,4 +1,4 @@
-# BentoBot — Architecture Reference
+# Luncharoo — Architecture Reference
 
 Read this when touching state, data, the AI layer, or non-trivial component wiring.
 
@@ -31,7 +31,7 @@ Read this when touching state, data, the AI layer, or non-trivial component wiri
     supabase.ts            — Supabase client (PKCE, persistSession, autoRefreshToken)
     dateUtils.ts           — getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel
   types.ts                 — Kid, ParentPrefs, Dish, LunchItem, WeeklyPlan, GroceryItem, ParsedSession
-  index.css                — Tailwind v4 @theme + moku utility classes
+  index.css                — Tailwind v4 @theme + luncharoo utility classes
   App.tsx                  — Router, AppProvider, RequireAuth, RequireKid, BentoShell
 /api
   _auth.ts                 — requireAuth(request) → validates Supabase JWT server-side

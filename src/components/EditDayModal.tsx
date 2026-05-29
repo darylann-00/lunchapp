@@ -4,10 +4,10 @@ import type { Kid, ParentPrefs, LunchItem, Dish } from '../types';
 import { useItemRegenerate } from '../hooks/useAI';
 
 const DAY_COLORS: Record<string, string> = {
-  Monday: 'bg-moku-coral',
-  Tuesday: 'bg-moku-peach',
-  Wednesday: 'bg-moku-yellow',
-  Thursday: 'bg-moku-blue',
+  Monday: 'bg-luncharoo-coral',
+  Tuesday: 'bg-luncharoo-peach',
+  Wednesday: 'bg-luncharoo-yellow',
+  Thursday: 'bg-luncharoo-blue',
   Friday: 'bg-emerald-500',
 };
 
@@ -77,17 +77,17 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
     }
   };
 
-  const dayColor = DAY_COLORS[item.day] ?? 'bg-moku-blue';
+  const dayColor = DAY_COLORS[item.day] ?? 'bg-luncharoo-blue';
 
   return (
     <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center p-2 sm:p-4">
-      <div className="absolute inset-0 bg-moku-dark/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-50 bg-white moku-border rounded-3xl w-full max-w-sm moku-shadow-lg overflow-hidden">
+      <div className="absolute inset-0 bg-luncharoo-dark/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-50 bg-white luncharoo-border rounded-3xl w-full max-w-sm luncharoo-shadow-lg overflow-hidden">
         {/* Header */}
         <div className={`${dayColor} px-4 pt-4 pb-5 relative`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-white/30 moku-border flex items-center justify-center font-fredoka text-white font-bold text-sm">
+              <div className="w-8 h-8 rounded-full bg-white/30 luncharoo-border flex items-center justify-center font-fredoka text-white font-bold text-sm">
                 {item.day[0]}
               </div>
               <div>
@@ -105,8 +105,8 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
               <button
                 key={t}
                 onClick={() => setActiveType(t)}
-                className={`flex-1 font-fredoka text-xs font-bold py-1.5 rounded-xl border-2 border-white/50 moku-press transition-colors ${
-                  activeType === t ? 'bg-white text-moku-dark' : 'bg-white/20 text-white'
+                className={`flex-1 font-fredoka text-xs font-bold py-1.5 rounded-xl border-2 border-white/50 luncharoo-press transition-colors ${
+                  activeType === t ? 'bg-white text-luncharoo-dark' : 'bg-white/20 text-white'
                 }`}
               >
                 {t === 'lunches' ? '🍱 Lunch' : t === 'sides' ? '🥕 Sides' : '🍎 Snacks'} ({draft[t].length})
@@ -122,18 +122,18 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
             <p className="text-xs text-slate-400 text-center py-4">No {activeType} — tap + to add one</p>
           ) : (
             dishes.map((dish, idx) => (
-              <div key={dish.id} className="bg-moku-beige/50 rounded-xl border border-moku-dark/20 p-3 space-y-2">
+              <div key={dish.id} className="bg-luncharoo-beige/50 rounded-xl border border-luncharoo-dark/20 p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={dish.name}
                     onChange={(e) => updateDish(idx, 'name', e.target.value)}
                     placeholder="Dish name"
-                    className="flex-1 moku-border rounded-xl px-2.5 py-1.5 text-sm font-fredoka text-moku-dark focus:outline-none bg-white"
+                    className="flex-1 luncharoo-border rounded-xl px-2.5 py-1.5 text-sm font-fredoka text-luncharoo-dark focus:outline-none bg-white"
                   />
                   <button
                     onClick={() => removeDish(idx)}
-                    className="w-6 h-6 flex items-center justify-center text-moku-coral hover:bg-moku-coral/10 rounded-lg text-sm"
+                    className="w-6 h-6 flex items-center justify-center text-luncharoo-coral hover:bg-luncharoo-coral/10 rounded-lg text-sm"
                   >
                     ×
                   </button>
@@ -145,12 +145,12 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
                     value={regenPrompts[dish.id] ?? ''}
                     onChange={(e) => setRegenPrompts((p) => ({ ...p, [dish.id]: e.target.value }))}
                     placeholder="AI tweak, e.g. make it nut-free"
-                    className="flex-1 bg-white moku-border rounded-lg px-2 py-1 text-xs focus:outline-none text-moku-dark"
+                    className="flex-1 bg-white luncharoo-border rounded-lg px-2 py-1 text-xs focus:outline-none text-luncharoo-dark"
                   />
                   <button
                     onClick={() => handleRegenerate(dish, idx)}
                     disabled={!!loadingIds[dish.id]}
-                    className="bg-moku-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg moku-border moku-shadow-sm moku-press disabled:opacity-50 font-bold"
+                    className="bg-luncharoo-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg luncharoo-border luncharoo-shadow-sm luncharoo-press disabled:opacity-50 font-bold"
                   >
                     {loadingIds[dish.id] ? '...' : '✨'}
                   </button>
@@ -167,7 +167,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
         <div className="px-4 pb-2">
           <button
             onClick={addDish}
-            className="w-full border-2 border-dashed border-moku-dark/30 rounded-xl py-2 text-xs font-fredoka text-moku-dark/50 hover:border-moku-blue hover:text-moku-blue transition-colors"
+            className="w-full border-2 border-dashed border-luncharoo-dark/30 rounded-xl py-2 text-xs font-fredoka text-luncharoo-dark/50 hover:border-luncharoo-blue hover:text-luncharoo-blue transition-colors"
           >
             + Add {activeType === 'lunches' ? 'lunch' : activeType === 'sides' ? 'side' : 'snack'}
           </button>
@@ -177,13 +177,13 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
         <div className="flex gap-2 px-4 pb-4 pt-2">
           <button
             onClick={onClose}
-            className="flex-1 border-2 border-moku-dark/30 text-slate-500 font-fredoka text-sm py-2.5 rounded-xl moku-press"
+            className="flex-1 border-2 border-luncharoo-dark/30 text-slate-500 font-fredoka text-sm py-2.5 rounded-xl luncharoo-press"
           >
             Cancel
           </button>
           <button
             onClick={() => { onSave(draft); onClose(); }}
-            className="flex-[1.5] bg-moku-yellow text-moku-dark font-fredoka text-sm py-2.5 rounded-xl moku-border moku-shadow-sm moku-press font-bold"
+            className="flex-[1.5] bg-luncharoo-yellow text-luncharoo-dark font-fredoka text-sm py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm luncharoo-press font-bold"
           >
             Save Changes 🍱
           </button>

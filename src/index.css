@@ -1,41 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  --color-moku-blue: #00bcf2;
-  --color-moku-coral: #f36c57;
-  --color-moku-yellow: #f9b922;
-  --color-moku-peach: #f9a65d;
-  --color-moku-dark: #134e9e;
-  --color-moku-beige: #f0ede6;
+  --color-luncharoo-blue: #00bcf2;
+  --color-luncharoo-coral: #f36c57;
+  --color-luncharoo-yellow: #f9b922;
+  --color-luncharoo-peach: #f9a65d;
+  --color-luncharoo-dark: #134e9e;
+  --color-luncharoo-beige: #f0ede6;
   --font-fredoka: 'Fredoka', sans-serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer utilities {
-  .moku-border {
-    border: 3.5px solid var(--color-moku-dark);
+  .luncharoo-border {
+    border: 3.5px solid var(--color-luncharoo-dark);
   }
-  .moku-border-t {
-    border-top: 3.5px solid var(--color-moku-dark);
+  .luncharoo-border-t {
+    border-top: 3.5px solid var(--color-luncharoo-dark);
   }
-  .moku-border-b {
-    border-bottom: 3.5px solid var(--color-moku-dark);
+  .luncharoo-border-b {
+    border-bottom: 3.5px solid var(--color-luncharoo-dark);
   }
-  .moku-shadow {
-    box-shadow: 4px 4px 0px var(--color-moku-dark);
+  .luncharoo-shadow {
+    box-shadow: 4px 4px 0px var(--color-luncharoo-dark);
   }
-  .moku-shadow-sm {
-    box-shadow: 2.5px 2.5px 0px var(--color-moku-dark);
+  .luncharoo-shadow-sm {
+    box-shadow: 2.5px 2.5px 0px var(--color-luncharoo-dark);
   }
-  .moku-shadow-lg {
-    box-shadow: 6px 6px 0px var(--color-moku-dark);
+  .luncharoo-shadow-lg {
+    box-shadow: 6px 6px 0px var(--color-luncharoo-dark);
   }
-  .moku-press {
+  .luncharoo-press {
     transition: transform 0.05s ease, box-shadow 0.05s ease;
   }
-  .moku-press:active {
+  .luncharoo-press:active {
     transform: translate(2px, 2px);
-    box-shadow: 1.5px 1.5px 0px var(--color-moku-dark);
+    box-shadow: 1.5px 1.5px 0px var(--color-luncharoo-dark);
   }
   .craft-bg {
     background-color: #f7f5f0;
