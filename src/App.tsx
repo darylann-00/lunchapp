@@ -198,6 +198,7 @@ function BentoShell() {
           {TAB_BTNS.map(({ id, icon, label }) => (
             <button
               key={id}
+              data-testid={`tab-${id}`}
               onClick={() => setActiveTab(id)}
               className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-all ${
                 activeTab === id
