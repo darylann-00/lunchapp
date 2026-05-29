@@ -21,6 +21,7 @@ vi.mock('./supabase', () => ({
   supabase: {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: sessionMock } }),
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-42' } }, error: null }),
     },
   },
 }));
@@ -159,7 +160,7 @@ describe('generateWeeklyPlan', () => {
   it('treats hallucinated recipe IDs as gaps and invokes Stage 3', async () => {
     getCandidateRecipesMock.mockResolvedValue([candidate('m1', 'Turkey wrap', 'main')]);
 
-    saveAIRecipeMock.mockImplementation(async ({ name }) => ({
+    saveAIRecipeMock.mockImplementation(async (_db: unknown, _userId: string, { name }: { name: string }) => ({
       id: 'saved-1',
       name,
       description: '',
@@ -249,7 +250,7 @@ describe('generateWeeklyPlan', () => {
     // saveAIRecipe should be called 7 times: Mon (2 sides + 1 snack) + Tue (1 main + 2 sides + 1 snack).
     expect(saveAIRecipeMock).toHaveBeenCalledTimes(7);
     // Order: Mon side 1, Mon side 2, Mon snack, Tue main, Tue side 1, Tue side 2, Tue snack.
-    expect(saveAIRecipeMock.mock.calls.map((c) => c[0].mealType)).toEqual([
+    expect(saveAIRecipeMock.mock.calls.map((c) => (c[2] as { mealType: string }).mealType)).toEqual([
       'side',
       'side',
       'snack',

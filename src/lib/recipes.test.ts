@@ -1,21 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Ingredient, Kid, ParentPrefs, ParsedSession } from '../types';
-
-// Hoisted mock for the Supabase client. Every test resets the implementations
-// on this single mock so we don't have to re-import the module.
-const { mockFrom, mockGetUser } = vi.hoisted(() => ({
-  mockFrom: vi.fn(),
-  mockGetUser: vi.fn(),
-}));
-
-vi.mock('./supabase', () => ({
-  supabase: {
-    from: mockFrom,
-    auth: { getUser: mockGetUser },
-  },
-}));
-
 import { autoTagRecipe, getCandidateRecipes, ingredientsContainAllergen, saveAIRecipe } from './recipes';
+
+// Mock db object — tests configure `mockFrom` per-case via `stubQueries`.
+const mockFrom = vi.fn();
+const mockDb = { from: mockFrom } as unknown as SupabaseClient;
 
 const KID: Kid = {
   id: 'kid-1',
@@ -137,7 +127,6 @@ describe('autoTagRecipe', () => {
 describe('getCandidateRecipes', () => {
   beforeEach(() => {
     mockFrom.mockReset();
-    mockGetUser.mockReset();
   });
 
   it('excludes recipes the user disliked', async () => {
@@ -149,7 +138,7 @@ describe('getCandidateRecipes', () => {
       feedback: [{ recipe_id: 'r1', reaction: 'dislike' }],
     });
 
-    const result = await getCandidateRecipes(KID, PREFS, SESSION);
+    const result = await getCandidateRecipes(mockDb, KID, PREFS, SESSION);
     expect(result.map((r) => r.id)).toEqual(['r2']);
   });
 
@@ -170,7 +159,7 @@ describe('getCandidateRecipes', () => {
     });
 
     const kidWithAllergy = { ...KID, allergies: ['peanut'] };
-    const result = await getCandidateRecipes(kidWithAllergy, PREFS, SESSION);
+    const result = await getCandidateRecipes(mockDb, kidWithAllergy, PREFS, SESSION);
     expect(result.map((r) => r.id)).toEqual(['r2']);
   });
 
@@ -184,7 +173,7 @@ describe('getCandidateRecipes', () => {
     });
 
     const veganKid = { ...KID, isVegan: true };
-    const result = await getCandidateRecipes(veganKid, PREFS, SESSION);
+    const result = await getCandidateRecipes(mockDb, veganKid, PREFS, SESSION);
     expect(result.map((r) => r.id)).toEqual(['r1']);
   });
 
@@ -203,7 +192,7 @@ describe('getCandidateRecipes', () => {
     });
 
     const sessionWithPeas: ParsedSession = { ...SESSION, ingredientsOnHand: ['peas'] };
-    const result = await getCandidateRecipes(KID, PREFS, sessionWithPeas);
+    const result = await getCandidateRecipes(mockDb, KID, PREFS, sessionWithPeas);
     // Favorite (+2) sorts ahead of on-hand match (+1) which sorts ahead of plain (0).
     expect(result.map((r) => r.id)).toEqual(['r3', 'r2', 'r1']);
   });
@@ -217,7 +206,7 @@ describe('getCandidateRecipes', () => {
       ],
     });
 
-    const result = await getCandidateRecipes(KID, PREFS, SESSION);
+    const result = await getCandidateRecipes(mockDb, KID, PREFS, SESSION);
     expect(result.filter((r) => r.mealType === 'main').length).toBe(2);
     expect(result.filter((r) => r.mealType === 'snack').length).toBe(1);
   });
@@ -226,12 +215,9 @@ describe('getCandidateRecipes', () => {
 describe('saveAIRecipe', () => {
   beforeEach(() => {
     mockFrom.mockReset();
-    mockGetUser.mockReset();
   });
 
-  it('writes source=ai with created_by=auth.uid() and attaches matching tags', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-42' } }, error: null });
-
+  it('writes source=ai with created_by=userId and attaches matching tags', async () => {
     const recipeInsertSpy = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
         single: vi
@@ -267,7 +253,7 @@ describe('saveAIRecipe', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const saved = await saveAIRecipe({
+    const saved = await saveAIRecipe(mockDb, 'user-42', {
       name: 'Pea quesadilla',
       description: 'Quick',
       prepNotes: 'Cook',
@@ -286,18 +272,47 @@ describe('saveAIRecipe', () => {
     expect(saved.source).toBe('ai');
   });
 
-  it('throws when the user is not authenticated', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    await expect(
-      saveAIRecipe({
-        name: 'X',
-        description: '',
-        prepNotes: '',
-        ingredients: [],
-        mealType: 'main',
-        tags: [],
-      })
-    ).rejects.toThrow(/not authenticated/i);
+  it('passes userId through to the insert as created_by', async () => {
+    const recipeInsertSpy = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: 'r-1',
+            name: 'X',
+            description: '',
+            prep_notes: '',
+            ingredients: [],
+            meal_type: 'main',
+            is_packaged: false,
+            source: 'ai',
+            source_url: null,
+            source_attribution: null,
+            prep_time_minutes: null,
+            created_by: 'custom-uid',
+          },
+          error: null,
+        }),
+      }),
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'recipes') return { insert: recipeInsertSpy };
+      if (table === 'recipe_tags') return { select: vi.fn().mockReturnValue({ in: vi.fn().mockResolvedValue({ data: [], error: null }) }) };
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await saveAIRecipe(mockDb, 'custom-uid', {
+      name: 'X',
+      description: '',
+      prepNotes: '',
+      ingredients: [],
+      mealType: 'main',
+      tags: [],
+    });
+
+    expect(recipeInsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ created_by: 'custom-uid' })
+    );
   });
 });
 
