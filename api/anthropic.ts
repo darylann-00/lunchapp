@@ -1,6 +1,13 @@
 import { requireAuth } from './_auth.js';
 import { checkRateLimit } from './_ratelimit.js';
 
+// Cap the request body. The largest legitimate call (candidate-pool plan
+// selection / grocery list) is well under ~50KB; this stops an authenticated
+// user from running up input-token cost with pathological payloads. max_tokens
+// only caps output, so without this the input side was unbounded.
+const MAX_BODY_BYTES = 128 * 1024;
+const MAX_MESSAGES = 50;
+
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireAuth(request);
   if (!auth.ok) return auth.response;
@@ -13,7 +20,25 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
   }
 
-  const raw = await request.json() as Record<string, unknown>;
+  const bodyText = await request.text();
+  if (Buffer.byteLength(bodyText, 'utf8') > MAX_BODY_BYTES) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 });
+  }
+
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(bodyText) as Record<string, unknown>;
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (!Array.isArray(raw.messages) || raw.messages.length === 0 || raw.messages.length > MAX_MESSAGES) {
+    return Response.json({ error: 'Invalid messages' }, { status: 400 });
+  }
+  if (raw.system !== undefined && typeof raw.system !== 'string' && !Array.isArray(raw.system)) {
+    return Response.json({ error: 'Invalid system prompt' }, { status: 400 });
+  }
+
   const sanitized = {
     ...raw,
     model: 'claude-sonnet-4-6',
