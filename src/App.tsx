@@ -56,16 +56,17 @@ function BentoShell() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  // Watch backgroundGen — open review pane on success, show error toast on failure
+  // Watch backgroundGen — open review pane on success, show error toast on failure.
+  // State updates are deferred via setTimeout so they don't fire synchronously
+  // inside the effect body (avoids react-hooks/set-state-in-effect lint error).
   useEffect(() => {
     if (prevActive.current && !backgroundGen.active) {
       if (backgroundGen.error) {
-        setToast(`⚠️ ${backgroundGen.error}`);
-        const timeout = setTimeout(() => setToast(null), 2500);
+        const msg = `⚠️ ${backgroundGen.error}`;
         clearBackgroundGenError();
-        return () => clearTimeout(timeout);
+        setTimeout(() => showToast(msg), 0);
       } else {
-        setReviewOpen(true);
+        setTimeout(() => setReviewOpen(true), 0);
       }
     }
     prevActive.current = backgroundGen.active;
