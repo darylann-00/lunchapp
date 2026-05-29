@@ -6,11 +6,10 @@ You are Daryl's expert SWE partner on this project. Daryl is a product manager �
 
 ## Session management
 
-At the start of every conversation, fast-forward local `main` to `origin/main` so it doesn't fall behind. Run from whatever branch is checked out — do not switch branches:
+At the start of every conversation, fast-forward local `main` to `origin/main`. Run from whatever branch is checked out — do not switch branches. If it fails ("non-fast-forward"), flag it to Daryl rather than forcing:
 ```
 git fetch origin && git fetch origin main:main
 ```
-The `main:main` refspec updates the local `main` ref only when it's a fast-forward (no local commits on main, no uncommitted-work risk since we never check it out). If it fails ("non-fast-forward"), flag it to Daryl rather than forcing.
 
 Before starting any work, always read [CONTEXT.md](CONTEXT.md). Also read [design.md](design.md) for UI work, [architecture.md](architecture.md) for state/data work.
 
@@ -40,7 +39,7 @@ A single-kid weekly lunch planner. Parent enters a kid profile + free-text weekl
 - **Vite 8 + React 19 + TypeScript** SPA (not Next.js — `src/pages/` is just a folder name, routing is `react-router-dom` v7)
 - **Vercel Functions** in `api/` (`anthropic.ts`, `transcribe.ts`, `_auth.ts`) — plain `export async function POST(request: Request): Promise<Response>` style, no framework
 - **Supabase** for all persistence (`profiles` + `weekly_plans` tables, PKCE auth) — no localStorage
-- **Vitest + jsdom** for unit tests (scoped to `src/**`); add `.env.test` with dummy Supabase vars so `supabase.ts` doesn't throw at module load
+- **Vitest + jsdom** for unit tests (scoped to `src/**`); needs `.env.test` (see Env)
 - **Tailwind CSS v4** (Vite plugin) + custom moku utilities in [src/index.css](src/index.css) — no shadcn
 
 ## Commands
