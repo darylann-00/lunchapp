@@ -119,8 +119,8 @@ export default function GroceryTab({ showToast }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {/* Date range selector */}
-      <div className="bg-white moku-border rounded-2xl moku-shadow-sm p-3">
-        <h3 className="font-fredoka text-sm font-bold text-moku-dark mb-2 flex items-center gap-1.5">
+      <div className="bg-white luncharoo-border rounded-2xl luncharoo-shadow-sm p-3">
+        <h3 className="font-fredoka text-sm font-bold text-luncharoo-dark mb-2 flex items-center gap-1.5">
           📅 Select Date Range
         </h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -132,7 +132,7 @@ export default function GroceryTab({ showToast }: Props) {
                 setFromWeek(e.target.value);
                 if (e.target.value > toWeek) setToWeek(e.target.value);
               }}
-              className="w-full moku-border rounded-xl px-2 py-1.5 bg-white text-xs font-fredoka text-moku-dark focus:outline-none"
+              className="w-full luncharoo-border rounded-xl px-2 py-1.5 bg-white text-xs font-fredoka text-luncharoo-dark focus:outline-none"
             >
               {weekOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -144,7 +144,7 @@ export default function GroceryTab({ showToast }: Props) {
             <select
               value={toWeek}
               onChange={(e) => setToWeek(e.target.value)}
-              className="w-full moku-border rounded-xl px-2 py-1.5 bg-white text-xs font-fredoka text-moku-dark focus:outline-none"
+              className="w-full luncharoo-border rounded-xl px-2 py-1.5 bg-white text-xs font-fredoka text-luncharoo-dark focus:outline-none"
             >
               {weekOptions.filter((o) => o.value >= fromWeek).map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -160,15 +160,15 @@ export default function GroceryTab({ showToast }: Props) {
       </div>
 
       {selectedPlans.length === 0 ? (
-        <div className="bg-moku-beige moku-border rounded-2xl p-6 text-center">
+        <div className="bg-luncharoo-beige luncharoo-border rounded-2xl p-6 text-center">
           <p className="text-2xl mb-2">🛒</p>
-          <p className="font-fredoka text-sm text-moku-dark font-bold">No plans in this range</p>
+          <p className="font-fredoka text-sm text-luncharoo-dark font-bold">No plans in this range</p>
           <p className="text-xs text-slate-500 mt-1">Generate a lunch plan first, then come back here.</p>
         </div>
       ) : (
-        <div className="bg-white moku-border rounded-2xl moku-shadow overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b-2 border-moku-dark/10">
-            <h3 className="font-fredoka text-sm font-bold text-moku-dark flex items-center gap-1.5">
+        <div className="bg-white luncharoo-border rounded-2xl luncharoo-shadow overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b-2 border-luncharoo-dark/10">
+            <h3 className="font-fredoka text-sm font-bold text-luncharoo-dark flex items-center gap-1.5">
               🧺 Ingredients
             </h3>
             <div className="flex gap-1.5">
@@ -176,14 +176,14 @@ export default function GroceryTab({ showToast }: Props) {
                 <button
                   onClick={handleGenerateAI}
                   disabled={generating}
-                  className="bg-moku-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg moku-border moku-shadow-sm moku-press disabled:opacity-50 font-bold"
+                  className="bg-luncharoo-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg luncharoo-border luncharoo-shadow-sm luncharoo-press disabled:opacity-50 font-bold"
                 >
                   {generating ? '...' : '✨ Smart List'}
                 </button>
               )}
               <button
                 onClick={copyToClipboard}
-                className="bg-moku-beige text-moku-dark font-fredoka text-xs px-2 py-1 rounded-lg border border-moku-dark moku-press font-bold"
+                className="bg-luncharoo-beige text-luncharoo-dark font-fredoka text-xs px-2 py-1 rounded-lg border border-luncharoo-dark luncharoo-press font-bold"
               >
                 📋 Copy
               </button>
@@ -200,7 +200,7 @@ export default function GroceryTab({ showToast }: Props) {
                 }, {})
               ).map(([cat, items]) => (
                 <div key={cat}>
-                  <h4 className="font-fredoka text-xs font-bold text-moku-coral mb-1.5">
+                  <h4 className="font-fredoka text-xs font-bold text-luncharoo-coral mb-1.5">
                     {CATEGORY_LABELS[cat as GroceryItem['category']] ?? cat}
                   </h4>
                   <div className="space-y-1">
@@ -212,7 +212,7 @@ export default function GroceryTab({ showToast }: Props) {
                             type="checkbox"
                             checked={!!checked[key]}
                             onChange={() => toggleCheck(key)}
-                            className="w-4 h-4 accent-moku-coral"
+                            className="w-4 h-4 accent-luncharoo-coral"
                           />
                           <span className={`text-sm ${checked[key] ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                             {item.quantity} {item.unit} <span className="font-semibold">{item.name}</span>
@@ -234,7 +234,7 @@ export default function GroceryTab({ showToast }: Props) {
                         type="checkbox"
                         checked={!!checked[key]}
                         onChange={() => toggleCheck(key)}
-                        className="w-4 h-4 accent-moku-coral"
+                        className="w-4 h-4 accent-luncharoo-coral"
                       />
                       <span className={`text-xs ${checked[key] ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                         {ing.quantity} {ing.unit} <span className="font-semibold">{ing.name}</span>

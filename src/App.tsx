@@ -92,19 +92,19 @@ function BentoShell() {
 
   return (
     <div className="craft-bg min-h-screen flex justify-center items-center p-2 sm:p-4 overflow-x-hidden antialiased">
-      <div className="w-full max-w-md h-[92vh] sm:h-[820px] bg-moku-beige flex flex-col relative shadow-2xl moku-border rounded-[32px] overflow-hidden">
+      <div className="w-full max-w-md h-[92vh] sm:h-[820px] bg-luncharoo-beige flex flex-col relative shadow-2xl luncharoo-border rounded-[32px] overflow-hidden">
 
         {/* Announcement strip */}
-        <div className="bg-moku-coral text-white font-fredoka font-bold text-xs py-1.5 px-3 text-center tracking-wider border-b-2 border-moku-dark relative z-30 select-none">
+        <div className="bg-luncharoo-coral text-white font-fredoka font-bold text-xs py-1.5 px-3 text-center tracking-wider border-b-2 border-luncharoo-dark relative z-30 select-none">
           🌈 AI LUNCH BOX ASSISTANT FOR KIDS
         </div>
 
         {/* Header */}
-        <header className="bg-moku-blue moku-border-b relative pt-3 pb-6 px-4 z-20">
+        <header className="bg-luncharoo-blue luncharoo-border-b relative pt-3 pb-6 px-4 z-20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {/* Logo */}
-              <div className="bg-moku-yellow moku-border rounded-xl p-1.5 moku-shadow-sm flex items-center justify-center -rotate-3">
+              <div className="bg-luncharoo-yellow luncharoo-border rounded-xl p-1.5 luncharoo-shadow-sm flex items-center justify-center -rotate-3">
                 <svg className="w-6 h-6" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="15" y="25" width="70" height="60" rx="15" fill="#f36c57" stroke="#134e9e" strokeWidth="7" />
                   <rect x="35" y="10" width="30" height="15" rx="5" fill="#f9a65d" stroke="#134e9e" strokeWidth="7" />
@@ -116,10 +116,10 @@ function BentoShell() {
               </div>
               <div>
                 <h1 className="font-fredoka text-xl font-bold text-white tracking-wide drop-shadow-[1.5px_1.5px_0px_#134e9e]">
-                  BentoBot!
+                  Luncharoo
                 </h1>
                 {kid && (
-                  <span className="text-xs font-fredoka text-moku-dark bg-white/95 px-2 py-0.5 rounded-full inline-block font-semibold">
+                  <span className="text-xs font-fredoka text-luncharoo-dark bg-white/95 px-2 py-0.5 rounded-full inline-block font-semibold">
                     👧 {kid.name}
                   </span>
                 )}
@@ -131,12 +131,12 @@ function BentoShell() {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setWeekStart((w) => addWeeks(w, -1))}
-                  className="w-8 h-8 bg-moku-blue/80 border-2 border-white/50 text-white rounded-xl flex items-center justify-center font-bold moku-press hover:bg-white/20 text-sm"
+                  className="w-8 h-8 bg-luncharoo-blue/80 border-2 border-white/50 text-white rounded-xl flex items-center justify-center font-bold luncharoo-press hover:bg-white/20 text-sm"
                 >
                   ‹
                 </button>
                 <div className="text-center min-w-[90px]">
-                  <p className="text-[10px] font-fredoka font-bold text-moku-coral uppercase tracking-wider leading-none">
+                  <p className="text-[10px] font-fredoka font-bold text-luncharoo-coral uppercase tracking-wider leading-none">
                     {weekRelativeLabel(weekStart)}
                   </p>
                   <p className="font-fredoka text-xs font-bold text-white leading-tight">
@@ -145,7 +145,7 @@ function BentoShell() {
                 </div>
                 <button
                   onClick={() => setWeekStart((w) => addWeeks(w, 1))}
-                  className="w-8 h-8 bg-moku-blue/80 border-2 border-white/50 text-white rounded-xl flex items-center justify-center font-bold moku-press hover:bg-white/20 text-sm"
+                  className="w-8 h-8 bg-luncharoo-blue/80 border-2 border-white/50 text-white rounded-xl flex items-center justify-center font-bold luncharoo-press hover:bg-white/20 text-sm"
                 >
                   ›
                 </button>
@@ -164,8 +164,8 @@ function BentoShell() {
 
         {/* Background generation banner */}
         {backgroundGen.active && (
-          <div className="bg-moku-yellow/30 border-b-2 border-moku-yellow px-4 py-2 text-xs text-moku-dark font-fredoka font-bold z-20 flex items-center gap-2">
-            <span className="inline-block w-3 h-3 border-2 border-moku-dark/30 border-t-moku-dark rounded-full animate-spin" />
+          <div className="bg-luncharoo-yellow/30 border-b-2 border-luncharoo-yellow px-4 py-2 text-xs text-luncharoo-dark font-fredoka font-bold z-20 flex items-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-luncharoo-dark/30 border-t-luncharoo-dark rounded-full animate-spin" />
             Generating your plan in the background…
           </div>
         )}
@@ -194,7 +194,7 @@ function BentoShell() {
         </div>
 
         {/* Bottom nav */}
-        <nav className="bg-white moku-border-t h-16 flex items-center justify-around px-4 relative z-20 select-none">
+        <nav className="bg-white luncharoo-border-t h-16 flex items-center justify-around px-4 relative z-20 select-none">
           {TAB_BTNS.map(({ id, icon, label }) => (
             <button
               key={id}
@@ -202,7 +202,7 @@ function BentoShell() {
               onClick={() => setActiveTab(id)}
               className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-all ${
                 activeTab === id
-                  ? 'text-moku-dark bg-moku-beige/60 font-bold scale-105'
+                  ? 'text-luncharoo-dark bg-luncharoo-beige/60 font-bold scale-105'
                   : 'text-slate-400'
               }`}
             >
@@ -252,7 +252,7 @@ function BentoShell() {
 
         {/* Toast */}
         {toast && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-moku-dark text-white text-xs font-fredoka font-bold py-2 px-4 rounded-full border-2 border-white shadow-xl z-50 flex items-center gap-2 whitespace-nowrap">
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-luncharoo-dark text-white text-xs font-fredoka font-bold py-2 px-4 rounded-full border-2 border-white shadow-xl z-50 flex items-center gap-2 whitespace-nowrap">
             {toast}
           </div>
         )}

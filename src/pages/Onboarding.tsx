@@ -68,16 +68,16 @@ function ProgressIndicator({ step }: { step: number }) {
         <div key={n} className="flex items-center">
           {n > 1 && (
             <div
-              className={`w-8 h-0.5 ${n <= step ? 'bg-moku-dark' : 'bg-moku-dark/20'}`}
+              className={`w-8 h-0.5 ${n <= step ? 'bg-luncharoo-dark' : 'bg-luncharoo-dark/20'}`}
             />
           )}
           <div
             className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-fredoka font-bold border-[2.5px] transition-all ${
               n < step
-                ? 'bg-moku-dark text-white border-moku-dark'
+                ? 'bg-luncharoo-dark text-white border-luncharoo-dark'
                 : n === step
-                ? 'bg-moku-yellow text-moku-dark border-moku-dark shadow-[2px_2px_0px_#134e9e]'
-                : 'bg-white text-moku-dark/30 border-moku-dark/25'
+                ? 'bg-luncharoo-yellow text-luncharoo-dark border-luncharoo-dark shadow-[2px_2px_0px_#134e9e]'
+                : 'bg-white text-luncharoo-dark/30 border-luncharoo-dark/25'
             }`}
           >
             {n < step ? '✓' : n}
@@ -178,18 +178,18 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
 
   const step1 = (
     <div className="flex flex-col gap-4">
-      <h2 className="font-fredoka text-xl font-bold text-moku-dark text-center leading-tight">
+      <h2 className="font-fredoka text-xl font-bold text-luncharoo-dark text-center leading-tight">
         {isEdit ? "Update your kid's info" : "Tell us about your kid!"}
       </h2>
 
-      <div className="bg-white rounded-2xl moku-border moku-shadow p-4 flex flex-col gap-4">
+      <div className="bg-white rounded-2xl luncharoo-border luncharoo-shadow p-4 flex flex-col gap-4">
         {/* Avatar + name row */}
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-moku-blue/25 moku-border flex-shrink-0 flex items-center justify-center text-2xl select-none">
+          <div className="w-14 h-14 rounded-full bg-luncharoo-blue/25 luncharoo-border flex-shrink-0 flex items-center justify-center text-2xl select-none">
             🧒
           </div>
           <div className="flex-1">
-            <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+            <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1">
               Kid's name
             </label>
             <input
@@ -197,21 +197,21 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Mia"
-              className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-moku-dark placeholder:text-slate-300 bg-moku-beige/40"
+              className="w-full rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-luncharoo-dark placeholder:text-slate-300 bg-luncharoo-beige/40"
             />
           </div>
         </div>
 
         {/* Birth date */}
         <div>
-          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1.5">
+          <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1.5">
             Date of birth
           </label>
           <div className="flex gap-2">
             <select
               value={birthMonth}
               onChange={(e) => setBirthMonth(Number(e.target.value))}
-              className="flex-1 rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-moku-dark bg-moku-beige/40 appearance-none cursor-pointer"
+              className="flex-1 rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-luncharoo-dark bg-luncharoo-beige/40 appearance-none cursor-pointer"
             >
               {MONTHS.map((m, i) => (
                 <option key={m} value={i + 1}>{m}</option>
@@ -220,7 +220,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
             <select
               value={birthYear}
               onChange={(e) => setBirthYear(Number(e.target.value))}
-              className="w-28 rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-moku-dark bg-moku-beige/40 appearance-none cursor-pointer"
+              className="w-28 rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka font-semibold text-luncharoo-dark bg-luncharoo-beige/40 appearance-none cursor-pointer"
             >
               {yearOptions.map((y) => (
                 <option key={y} value={y}>{y}</option>
@@ -239,12 +239,12 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
 
   const step2 = (
     <div className="flex flex-col gap-4">
-      <h2 className="font-fredoka text-xl font-bold text-moku-dark text-center leading-tight">
+      <h2 className="font-fredoka text-xl font-bold text-luncharoo-dark text-center leading-tight">
         Any dietary restrictions?{' '}
         <span className="font-normal text-slate-400 text-base">(optional)</span>
       </h2>
 
-      <div className="bg-white rounded-2xl moku-border moku-shadow p-4">
+      <div className="bg-white rounded-2xl luncharoo-border luncharoo-shadow p-4">
         <div className="grid grid-cols-3 gap-2">
           {DIETARY_OPTIONS.map((opt) => {
             const selected = restrictions.has(opt.id);
@@ -253,10 +253,10 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
                 key={opt.id}
                 type="button"
                 onClick={() => toggleRestriction(opt.id)}
-                className={`rounded-xl border-2 px-2 py-2.5 text-xs font-fredoka font-bold leading-tight text-center transition-all moku-press ${
+                className={`rounded-xl border-2 px-2 py-2.5 text-xs font-fredoka font-bold leading-tight text-center transition-all luncharoo-press ${
                   selected
-                    ? 'bg-moku-dark text-white border-moku-dark shadow-[2px_2px_0px_rgba(19,78,158,0.4)]'
-                    : 'bg-moku-beige/50 text-moku-dark border-moku-dark/25 hover:border-moku-dark/60'
+                    ? 'bg-luncharoo-dark text-white border-luncharoo-dark shadow-[2px_2px_0px_rgba(19,78,158,0.4)]'
+                    : 'bg-luncharoo-beige/50 text-luncharoo-dark border-luncharoo-dark/25 hover:border-luncharoo-dark/60'
                 }`}
               >
                 {opt.label}
@@ -270,15 +270,15 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
 
   const step3 = (
     <div className="flex flex-col gap-4">
-      <h2 className="font-fredoka text-xl font-bold text-moku-dark text-center leading-tight">
+      <h2 className="font-fredoka text-xl font-bold text-luncharoo-dark text-center leading-tight">
         A few more details
         <br />
         <span className="font-normal text-slate-400 text-base">about {name || 'your kid'}!</span>
       </h2>
 
-      <div className="bg-white rounded-2xl moku-border moku-shadow p-4 flex flex-col gap-4">
+      <div className="bg-white rounded-2xl luncharoo-border luncharoo-shadow p-4 flex flex-col gap-4">
         <div>
-          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+          <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1">
             Favourite foods
             <span className="font-normal text-slate-400 ml-1">(comma-separated, optional)</span>
           </label>
@@ -287,12 +287,12 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
             value={likesRaw}
             onChange={(e) => setLikesRaw(e.target.value)}
             placeholder="e.g. pasta, strawberries, hummus"
-            className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka text-moku-dark placeholder:text-slate-300 bg-moku-beige/40"
+            className="w-full rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka text-luncharoo-dark placeholder:text-slate-300 bg-luncharoo-beige/40"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+          <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1">
             Foods to avoid
             <span className="font-normal text-slate-400 ml-1">(comma-separated, optional)</span>
           </label>
@@ -301,12 +301,12 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
             value={dislikesRaw}
             onChange={(e) => setDislikesRaw(e.target.value)}
             placeholder="e.g. mushrooms, onions"
-            className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka text-moku-dark placeholder:text-slate-300 bg-moku-beige/40"
+            className="w-full rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka text-luncharoo-dark placeholder:text-slate-300 bg-luncharoo-beige/40"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-fredoka font-bold text-moku-dark mb-1">
+          <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1">
             School / camp rules
             <span className="font-normal text-slate-400 ml-1">(optional)</span>
           </label>
@@ -315,7 +315,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
             value={schoolRules}
             onChange={(e) => setSchoolRules(e.target.value)}
             placeholder="e.g. nut-free, no glass, no microwave"
-            className="w-full rounded-xl border-2 border-moku-dark/30 focus:border-moku-dark outline-none px-3 py-2 text-sm font-fredoka text-moku-dark placeholder:text-slate-300 bg-moku-beige/40 resize-none"
+            className="w-full rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka text-luncharoo-dark placeholder:text-slate-300 bg-luncharoo-beige/40 resize-none"
           />
         </div>
 
@@ -323,21 +323,21 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
         <button
           type="button"
           onClick={() => setNeedsSnacks((v) => !v)}
-          className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-sm font-fredoka font-bold transition-all moku-press ${
+          className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-sm font-fredoka font-bold transition-all luncharoo-press ${
             needsSnacks
-              ? 'bg-moku-yellow/30 border-moku-yellow text-moku-dark'
-              : 'bg-moku-beige/50 border-moku-dark/25 text-slate-400'
+              ? 'bg-luncharoo-yellow/30 border-luncharoo-yellow text-luncharoo-dark'
+              : 'bg-luncharoo-beige/50 border-luncharoo-dark/25 text-slate-400'
           }`}
         >
           <span className="text-lg">{needsSnacks ? '🍎' : '➕'}</span>
           <span>{needsSnacks ? 'Pack snacks too!' : 'Add snacks'}</span>
           <span
-            className={`ml-auto w-10 h-5 rounded-full border-2 border-moku-dark/30 relative transition-colors ${
-              needsSnacks ? 'bg-moku-dark' : 'bg-moku-dark/15'
+            className={`ml-auto w-10 h-5 rounded-full border-2 border-luncharoo-dark/30 relative transition-colors ${
+              needsSnacks ? 'bg-luncharoo-dark' : 'bg-luncharoo-dark/15'
             }`}
           >
             <span
-              className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white border border-moku-dark/30 shadow transition-all ${
+              className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white border border-luncharoo-dark/30 shadow transition-all ${
                 needsSnacks ? 'left-[calc(100%-1rem)]' : 'left-0.5'
               }`}
             />
@@ -360,7 +360,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
         <button
           type="button"
           onClick={() => setStep((s) => s - 1)}
-          className="flex-1 rounded-full border-[2.5px] border-moku-dark bg-white text-moku-dark font-fredoka font-bold text-base py-3 moku-press hover:bg-moku-beige"
+          className="flex-1 rounded-full border-[2.5px] border-luncharoo-dark bg-white text-luncharoo-dark font-fredoka font-bold text-base py-3 luncharoo-press hover:bg-luncharoo-beige"
         >
           Back
         </button>
@@ -372,10 +372,10 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
           if (isLastStep) handleFinish();
           else setStep((s) => s + 1);
         }}
-        className={`flex-1 rounded-full border-[2.5px] border-moku-dark font-fredoka font-bold text-base py-3 moku-press transition-opacity ${
+        className={`flex-1 rounded-full border-[2.5px] border-luncharoo-dark font-fredoka font-bold text-base py-3 luncharoo-press transition-opacity ${
           canProceed && !saving
-            ? 'bg-moku-yellow text-moku-dark moku-shadow'
-            : 'bg-moku-yellow/40 text-moku-dark/40 cursor-not-allowed'
+            ? 'bg-luncharoo-yellow text-luncharoo-dark luncharoo-shadow'
+            : 'bg-luncharoo-yellow/40 text-luncharoo-dark/40 cursor-not-allowed'
         }`}
       >
         {saving ? 'Saving…' : isLastStep ? (isEdit ? 'Save changes' : 'Get started!') : 'Next'}
@@ -402,7 +402,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
       {/* Logo */}
       <div className="flex justify-center pt-8 pb-5">
         <div className="flex items-center gap-2.5">
-          <div className="bg-moku-yellow moku-border rounded-xl p-1.5 moku-shadow-sm flex items-center justify-center -rotate-3">
+          <div className="bg-luncharoo-yellow luncharoo-border rounded-xl p-1.5 luncharoo-shadow-sm flex items-center justify-center -rotate-3">
             <svg className="w-7 h-7" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="15" y="25" width="70" height="60" rx="15" fill="#f36c57" stroke="#134e9e" strokeWidth="7" />
               <rect x="35" y="10" width="30" height="15" rx="5" fill="#f9a65d" stroke="#134e9e" strokeWidth="7" />
@@ -412,8 +412,8 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
               <path d="M43,62 Q50,67 57,62" stroke="#134e9e" strokeWidth="4" strokeLinecap="round" fill="none" />
             </svg>
           </div>
-          <h1 className="font-fredoka text-2xl font-bold text-moku-dark tracking-wide">
-            BentoBot!
+          <h1 className="font-fredoka text-2xl font-bold text-luncharoo-dark tracking-wide">
+            Luncharoo
           </h1>
         </div>
       </div>
@@ -424,7 +424,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
       </div>
 
       {/* Teal content area */}
-      <div className="flex-1 bg-moku-blue/20 rounded-t-[2rem] mx-0 px-5 pt-6 pb-8 flex flex-col gap-6">
+      <div className="flex-1 bg-luncharoo-blue/20 rounded-t-[2rem] mx-0 px-5 pt-6 pb-8 flex flex-col gap-6">
         {stepContent}
         {navButtons}
       </div>
