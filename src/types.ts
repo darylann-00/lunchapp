@@ -64,6 +64,7 @@ export type WeeklyPlan = {
   items: LunchItem[];
   groceryList: GroceryItem[] | null;
   sessionNotes: string;
+  prepProgress: Record<string, number[]>;
 };
 
 export type ParsedSession = {

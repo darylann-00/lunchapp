@@ -41,11 +41,13 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **Onboarding** (`src/pages/Onboarding.tsx`) — multi-step form collecting kid profile (name, age, allergies, dislikes, likes, repetition preference, snack config, dietary flags, school rules) and parent prefs. Protected by `RequireAuth`. Redirected to from `RequireKid` guard when no kid exists.
 
-- **BentoShell** (`src/App.tsx`) — three-tab shell (Lunch Plan / Grocery / Profile) inside a fixed 390px-wide card with the moku visual theme. Week navigation arrows in the header (Lunch tab only). `✨ New Plan` FAB.
+- **BentoShell** (`src/App.tsx`) — three-tab shell (Lunch Plan / Grocery / Profile) inside a fixed 390px-wide card with the moku visual theme. Week navigation arrows in the header (Lunch tab only). FontAwesome icons in the bottom nav; no FABs.
 
 - **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen two-step overlay. Step 1: day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Step 2: per-day preview → "Apply Plan" saves to Supabase via AppContext. `ParsedSession` is built client-side directly from wizard state; `parseWeeklyNotes` is intentionally skipped here.
 
-- **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan, one card per day. Per-dish regenerate button. Empty state prompts the wizard.
+- **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan as a 3-column grid (Day / Main Lunch / Snacks). Everything is visible at once: sides render stacked under each main, snacks each in their own box, no truncation or "see more". Tapping a row opens EditDayModal; tapping the day pill opens PrepModal. Fully-prepped dishes get a strikethrough + DONE stamp. Empty state prompts the wizard.
+
+- **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish's `prepNotes` is split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`).
 
 - **EditDayModal** (`src/components/EditDayModal.tsx`) — regenerates individual lunches or snacks with a note via `regenerateDish`.
 
@@ -82,7 +84,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 | Table | Key columns |
 |-------|-------------|
 | `profiles` | `id` (auth user uuid PK), `kid` (jsonb), `parent_prefs` (jsonb) |
-| `weekly_plans` | `id` (uuid), `user_id`, `week_start_date` (date), `status`, `days` (text[]), `items` (jsonb), `grocery_list` (jsonb), unique on `(user_id, week_start_date)` |
+| `weekly_plans` | `id` (uuid), `user_id`, `week_start_date` (date), `status`, `days` (text[]), `items` (jsonb), `grocery_list` (jsonb), `prep_progress` (jsonb), unique on `(user_id, week_start_date)` |
 | `recipes` | `id` (uuid), `name`, `description`, `prep_notes`, `ingredients` (jsonb), `meal_type` (`'main' \| 'snack' \| 'side'`), `source` (`'curated' \| 'ai' \| 'user'`), `source_url`, `source_attribution`, `prep_time_minutes`, `created_by` (null = global, else user-private) |
 | `recipe_tags` | `id`, `name` (unique), `category` (`'dietary' \| 'format' \| 'ingredient' \| 'occasion'`) |
 | `recipe_tag_assignments` | `recipe_id`, `tag_id` (composite PK, many-to-many join) |

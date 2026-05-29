@@ -13,9 +13,9 @@ git fetch origin && git fetch origin main:main
 
 Before starting any work, always read [CONTEXT.md](CONTEXT.md). Also read [design.md](design.md) for UI work, [architecture.md](architecture.md) for state/data work.
 
-Before opening a PR, sync with main: `git fetch origin && git rebase origin/main`. Resolve any conflicts, verify the build still passes, then open the PR.
+Before opening a PR, sync with main: `git fetch origin && git rebase origin/main`. Resolve any conflicts, verify the build still passes, then update [CONTEXT.md](CONTEXT.md) and include it in the PR. In CONTEXT.md, only update existing sections in-place — rewrite the relevant sentence/row/bullet to reflect current state. Do not append what changed, what was fixed, or what was added this session. If something was completed, remove it from Next Priorities; if a status changed, edit the existing line. The file should read as a snapshot of now, not a history of changes.
 
-When Daryl says "wrap it up", push changes from this session to prod and update [CONTEXT.md](CONTEXT.md). In CONTEXT.md, only update existing sections in-place — rewrite the relevant sentence/row/bullet to reflect current state. Do not append what changed, what was fixed, or what was added this session. If something was completed, remove it from Next Priorities; if a status changed, edit the existing line. The file should read as a snapshot of now, not a history of changes.
+When Daryl says "wrap it up", push changes from this session to prod.
 
 Before ending a session, summarize what changed and any decisions made.
 
