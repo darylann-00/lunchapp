@@ -11,8 +11,12 @@ import GroceryTab from './components/GroceryTab';
 import ProfileTab from './components/ProfileTab';
 import WizardOverlay from './components/WizardOverlay';
 import EditDayModal from './components/EditDayModal';
+import PrepModal from './components/PrepModal';
 import { getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
+import { toggleStep } from './lib/prepSteps';
 import type { LunchItem } from './types';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBoxArchive, faClipboardList, faUserNinja, type IconDefinition } from '@fortawesome/free-solid-svg-icons';
 import './index.css';
 
 type Tab = 'lunch' | 'grocery' | 'profile';
@@ -32,7 +36,7 @@ function RequireKid({ children }: { children: React.ReactNode }) {
 }
 
 function BentoShell() {
-  const { plans, updatePlanItems, storageError, backgroundGen, clearBackgroundGenError } = useApp();
+  const { plans, updatePlanItems, setPrepProgress, storageError, backgroundGen, clearBackgroundGenError } = useApp();
   const { kid } = useKid();
   const { parentPrefs: prefs } = useParentPrefs();
 
@@ -40,6 +44,7 @@ function BentoShell() {
   const [weekStart, setWeekStart] = useState(getMondayISO(new Date()));
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LunchItem | null>(null);
+  const [prepItem, setPrepItem] = useState<LunchItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const prevActive = useRef(false);
@@ -79,18 +84,11 @@ function BentoShell() {
     ? activePlan.items.flatMap((i) => [...i.lunches, ...i.snacks])
     : [];
 
-  const TAB_BTNS: { id: Tab; icon: string; label: string }[] = [
-    { id: 'lunch', icon: '🍱', label: 'Lunch Plan' },
-    { id: 'grocery', icon: '🛒', label: 'Grocery' },
-    { id: 'profile', icon: '⚙️', label: 'Profile' },
+  const TAB_BTNS: { id: Tab; icon: IconDefinition; label: string }[] = [
+    { id: 'lunch', icon: faBoxArchive, label: 'Lunch Plan' },
+    { id: 'grocery', icon: faClipboardList, label: 'Grocery' },
+    { id: 'profile', icon: faUserNinja, label: 'Profile' },
   ];
-
-  // Bounce animation for FAB
-  const [fabBounce, setFabBounce] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setFabBounce(false), 6000);
-    return () => clearTimeout(t);
-  }, []);
 
   return (
     <div className="craft-bg min-h-screen flex justify-center items-center p-2 sm:p-4 overflow-x-hidden antialiased">
@@ -179,6 +177,7 @@ function BentoShell() {
               plan={activePlan}
               weekStartDate={weekStart}
               onEditDay={setEditingItem}
+              onPrepDay={setPrepItem}
               onGenerateClick={() => setWizardOpen(true)}
             />
           )}
@@ -194,17 +193,6 @@ function BentoShell() {
           )}
         </div>
 
-        {/* FAB */}
-        {activeTab === 'lunch' && (
-          <button
-            onClick={() => setWizardOpen(true)}
-            className={`absolute bottom-20 right-4 z-30 bg-moku-yellow text-moku-dark moku-border rounded-full px-4 py-3 moku-shadow moku-press flex items-center gap-2 font-fredoka text-sm font-bold hover:bg-amber-400 ${fabBounce ? 'animate-bounce' : ''}`}
-          >
-            <span>✨</span>
-            <span>New Plan</span>
-          </button>
-        )}
-
         {/* Bottom nav */}
         <nav className="bg-white moku-border-t h-16 flex items-center justify-around px-4 relative z-20 select-none">
           {TAB_BTNS.map(({ id, icon, label }) => (
@@ -217,7 +205,7 @@ function BentoShell() {
                   : 'text-slate-400'
               }`}
             >
-              <span className="text-lg">{icon}</span>
+              <FontAwesomeIcon icon={icon} className="text-lg" />
               <span className="text-xs font-fredoka font-bold tracking-wide">{label}</span>
             </button>
           ))}
@@ -246,6 +234,18 @@ function BentoShell() {
             )}
             onSave={handleSaveItem}
             onClose={() => setEditingItem(null)}
+          />
+        )}
+
+        {/* Prep modal */}
+        {prepItem && activePlan && (
+          <PrepModal
+            item={prepItem}
+            prepProgress={activePlan.prepProgress}
+            onToggleStep={(dishId, stepIndex) =>
+              setPrepProgress(activePlan.id, toggleStep(activePlan.prepProgress, dishId, stepIndex))
+            }
+            onClose={() => setPrepItem(null)}
           />
         )}
 

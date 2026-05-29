@@ -1,5 +1,7 @@
 import type { WeeklyPlan, LunchItem } from '../types';
 import { getTodayDayName, isCurrentWeek } from '../lib/dateUtils';
+import { isDishPrepped } from '../lib/prepSteps';
+import DoneStamp from './DoneStamp';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
 
@@ -15,10 +17,11 @@ type Props = {
   plan: WeeklyPlan | null;
   weekStartDate: string;
   onEditDay: (item: LunchItem) => void;
+  onPrepDay: (item: LunchItem) => void;
   onGenerateClick: () => void;
 };
 
-export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerateClick }: Props) {
+export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onPrepDay, onGenerateClick }: Props) {
   const today = getTodayDayName();
   const showTodayHighlight = isCurrentWeek(weekStartDate);
 
@@ -50,7 +53,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
           <thead>
             <tr className="bg-moku-blue text-white font-fredoka text-xs tracking-wider border-b-[3px] border-moku-dark select-none">
               <th className="p-2 border-r-[3px] border-moku-dark w-[22%] text-center font-bold">DAY</th>
-              <th className="p-2 border-r-[3px] border-moku-dark w-[39%] text-left font-bold">🍱 LUNCH</th>
+              <th className="p-2 border-r-[3px] border-moku-dark w-[39%] text-left font-bold">🍱 MAIN LUNCH</th>
               <th className="p-2 w-[39%] text-left font-bold">🍎 SNACKS</th>
             </tr>
           </thead>
@@ -67,33 +70,62 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
                   className={`${rowClass} border-b-[2.5px] border-moku-dark/20 last:border-b-0 transition-colors`}
                 >
                   {/* Day badge */}
-                  <td className="p-2 border-r-[2.5px] border-moku-dark/20 text-center align-middle select-none">
-                    <span
-                      className={`${theme.badge} text-white font-fredoka font-bold text-xs px-2 py-1 rounded-xl border-2 border-moku-dark block moku-shadow-sm -rotate-2`}
+                  <td className="p-2 border-r-[2.5px] border-moku-dark/20 text-center align-top select-none">
+                    <button
+                      onClick={() => item && onPrepDay(item)}
+                      disabled={!item}
+                      className={`${theme.badge} text-white font-fredoka font-bold text-xs px-2 py-1 rounded-xl border-2 border-moku-dark block moku-shadow-sm -rotate-2 mx-auto ${
+                        item ? 'cursor-pointer hover:scale-105 transition-transform' : 'cursor-default'
+                      }`}
                     >
                       {day.slice(0, 3).toUpperCase()}
-                    </span>
+                    </button>
                   </td>
 
-                  {/* Lunch cell */}
+                  {/* Main lunch cell */}
                   <td
                     onClick={() => item && onEditDay(item)}
-                    className={`p-3 border-r-[2.5px] border-moku-dark/20 align-middle ${item ? 'cursor-pointer hover:bg-moku-blue/5 group' : ''}`}
+                    className={`p-3 border-r-[2.5px] border-moku-dark/20 align-top ${item ? 'cursor-pointer hover:bg-moku-blue/5 group' : ''}`}
                   >
                     {item && item.lunches.length > 0 ? (
-                      <div>
-                        <span className="font-fredoka text-sm text-moku-dark font-semibold leading-tight group-hover:text-moku-coral transition-colors line-clamp-2">
-                          {item.lunches[0].name}
-                        </span>
-                        {item.lunches.length > 1 && (
-                          <span className="text-xs text-moku-blue font-semibold block mt-0.5">
-                            +{item.lunches.length - 1} more
-                          </span>
-                        )}
+                      <div className="space-y-0.5">
+                        {item.lunches.map((lunch) => {
+                          const done = isDishPrepped(lunch.id, lunch.name, lunch.prepNotes, plan.prepProgress);
+                          return (
+                            <div key={lunch.id} className="relative">
+                              <span
+                                className={`font-fredoka text-sm sm:text-[15px] font-bold text-moku-dark block ${
+                                  done ? 'line-through decoration-moku-dark/40 opacity-65' : ''
+                                }`}
+                              >
+                                {lunch.name}
+                              </span>
+                              {done && (
+                                <DoneStamp className="w-9 h-9 absolute -top-3 -right-2 rotate-12 pointer-events-none drop-shadow" />
+                              )}
+                            </div>
+                          );
+                        })}
                         {(item.sides ?? []).length > 0 && (
-                          <span className="text-xs text-slate-400 block mt-0.5 leading-tight line-clamp-1">
-                            🥕 {(item.sides ?? []).map((s) => s.name).join(' · ')}
-                          </span>
+                          <div className="border-t border-dashed border-moku-dark/15 pt-1.5 mt-1.5 space-y-0.5">
+                            {item.sides.map((side) => {
+                              const done = isDishPrepped(side.id, side.name, side.prepNotes, plan.prepProgress);
+                              return (
+                                <div key={side.id} className="relative">
+                                  <span
+                                    className={`text-xs sm:text-[12.5px] text-moku-dark/60 font-semibold block ${
+                                      done ? 'line-through decoration-moku-dark/40 opacity-65' : ''
+                                    }`}
+                                  >
+                                    🥕 {side.name}
+                                  </span>
+                                  {done && (
+                                    <DoneStamp className="w-7 h-7 absolute -top-2 -right-1 rotate-12 pointer-events-none drop-shadow" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
                     ) : (
@@ -104,18 +136,30 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
                   {/* Snacks cell */}
                   <td
                     onClick={() => item && onEditDay(item)}
-                    className={`p-3 align-middle ${item ? 'cursor-pointer hover:bg-moku-yellow/5 group' : ''}`}
+                    className={`p-3 align-top ${item ? 'cursor-pointer hover:bg-moku-yellow/5 group' : ''}`}
                   >
                     {item && item.snacks.length > 0 ? (
-                      <div>
-                        <span className="font-fredoka text-sm text-moku-dark font-semibold leading-tight group-hover:text-moku-peach transition-colors line-clamp-2">
-                          {item.snacks[0].name}
-                        </span>
-                        {item.snacks.length > 1 && (
-                          <span className="text-xs text-moku-blue font-semibold block mt-0.5">
-                            +{item.snacks.length - 1} more
-                          </span>
-                        )}
+                      <div className="space-y-1.5">
+                        {item.snacks.map((snack) => {
+                          const done = isDishPrepped(snack.id, snack.name, snack.prepNotes, plan.prepProgress);
+                          return (
+                            <div
+                              key={snack.id}
+                              className="bg-moku-beige/50 rounded-lg p-2 border border-moku-dark/20 relative"
+                            >
+                              <span
+                                className={`font-fredoka text-sm font-semibold text-moku-dark block ${
+                                  done ? 'line-through decoration-moku-dark/40 opacity-65' : ''
+                                }`}
+                              >
+                                {snack.name}
+                              </span>
+                              {done && (
+                                <DoneStamp className="w-7 h-7 absolute -top-2 -right-1 rotate-12 pointer-events-none drop-shadow" />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <span className="text-xs text-slate-300 italic">—</span>
@@ -128,19 +172,12 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
         </table>
       </div>
 
-      <p className="text-xs text-center text-slate-400 font-medium tracking-wide select-none">
-        💡 Tap any row to edit lunches or snacks for that day
-      </p>
-
-      <div className="bg-moku-blue/10 border-2 border-dashed border-moku-blue rounded-2xl p-3 flex items-center justify-between gap-3">
-        <div className="flex-1">
-          <h4 className="font-fredoka text-sm font-bold text-moku-dark">Want to customize this week?</h4>
-          <p className="text-xs text-slate-500 leading-tight mt-0.5">
-            Tap ✨ New Plan below to regenerate with BentoBot.
-          </p>
-        </div>
-        <span className="text-2xl animate-pulse">✨</span>
-      </div>
+      <button
+        onClick={onGenerateClick}
+        className="w-full bg-moku-yellow text-moku-dark font-fredoka font-bold text-sm py-3 rounded-2xl moku-border moku-shadow moku-press flex items-center justify-center gap-2"
+      >
+        <span>✨</span><span>Regenerate Week</span>
+      </button>
     </div>
   );
 }

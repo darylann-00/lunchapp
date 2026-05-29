@@ -13,6 +13,7 @@ type AppContextValue = {
   savePlan: (weekStartDate: string, days: string[], sessionNotes: string, items: LunchItem[]) => Promise<WeeklyPlan>;
   updatePlanItems: (planId: string, items: LunchItem[]) => Promise<void>;
   setGroceryList: (planId: string, list: GroceryItem[]) => Promise<void>;
+  setPrepProgress: (planId: string, progress: Record<string, number[]>) => Promise<void>;
   deletePlan: (planId: string) => Promise<void>;
   clearAll: () => Promise<void>;
   storageError: string | null;
@@ -32,6 +33,7 @@ type DbPlan = {
   items: LunchItem[];
   grocery_list: GroceryItem[] | null;
   session_notes: string;
+  prep_progress: Record<string, number[]> | null;
   created_at: string;
 };
 
@@ -45,6 +47,7 @@ function dbPlanToWeeklyPlan(row: DbPlan): WeeklyPlan {
     items: row.items,
     groceryList: row.grocery_list,
     sessionNotes: row.session_notes,
+    prepProgress: row.prep_progress ?? {},
   };
 }
 
@@ -161,6 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           items,
           grocery_list: null,
           session_notes: sessionNotes,
+          prep_progress: {},
         }, { onConflict: 'user_id,week_start_date' })
         .select()
         .single();
@@ -186,6 +190,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
     });
     setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, groceryList: list } : p)));
+  }, [wrap]);
+
+  const setPrepProgress = useCallback(async (planId: string, progress: Record<string, number[]>) => {
+    // Optimistic local update so checkboxes feel instant; persist in the background.
+    setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, prepProgress: progress } : p)));
+    await wrap(async () => {
+      const { error } = await supabase.from('weekly_plans').update({ prep_progress: progress }).eq('id', planId);
+      if (error) throw error;
+    });
   }, [wrap]);
 
   const deletePlan = useCallback(async (planId: string) => {
@@ -255,6 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       savePlan,
       updatePlanItems,
       setGroceryList,
+      setPrepProgress,
       deletePlan,
       clearAll,
       storageError,
