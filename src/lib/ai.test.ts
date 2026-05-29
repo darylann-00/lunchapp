@@ -80,7 +80,7 @@ const PREFS: ParentPrefs = {
   otherNotes: '',
 };
 
-function candidate(id: string, name: string, mealType: 'main' | 'snack'): RecipeWithTags {
+function candidate(id: string, name: string, mealType: 'main' | 'snack' | 'side'): RecipeWithTags {
   return {
     id,
     name,
@@ -119,15 +119,19 @@ describe('generateWeeklyPlan', () => {
     getCandidateRecipesMock.mockResolvedValue([
       candidate('m1', 'Turkey wrap', 'main'),
       candidate('m2', 'Cheese quesadilla', 'main'),
-      candidate('s1', 'Apple slices', 'snack'),
-      candidate('s2', 'Cheddar cubes', 'snack'),
+      candidate('d1', 'Apple slices', 'side'),
+      candidate('d2', 'Carrot sticks', 'side'),
+      candidate('d3', 'Cheese cubes', 'side'),
+      candidate('d4', 'Crackers', 'side'),
+      candidate('s1', 'Granola bar', 'snack'),
+      candidate('s2', 'Yogurt cup', 'snack'),
     ]);
 
     stubAnthropic([
       JSON.stringify({
         days: [
-          { day: 'Monday', mainRecipeId: 'm1', snackRecipeIds: ['s1'] },
-          { day: 'Tuesday', mainRecipeId: 'm2', snackRecipeIds: ['s2'] },
+          { day: 'Monday', mainRecipeId: 'm1', sideRecipeIds: ['d1', 'd2'], snackRecipeIds: ['s1'] },
+          { day: 'Tuesday', mainRecipeId: 'm2', sideRecipeIds: ['d3', 'd4'], snackRecipeIds: ['s2'] },
         ],
       }),
     ]);
@@ -144,7 +148,10 @@ describe('generateWeeklyPlan', () => {
     expect(days).toEqual(['Monday', 'Tuesday']);
     expect(items.map((i) => i.day)).toEqual(['Monday', 'Tuesday']);
     expect(items[0]!.lunches[0]!.name).toBe('Turkey wrap');
-    expect(items[0]!.snacks[0]!.name).toBe('Apple slices');
+    expect(items[0]!.sides.length).toBe(2);
+    expect(items[0]!.sides[0]!.name).toBe('Apple slices');
+    expect(items[0]!.sides[1]!.name).toBe('Carrot sticks');
+    expect(items[0]!.snacks[0]!.name).toBe('Granola bar');
     expect(items[1]!.lunches[0]!.name).toBe('Cheese quesadilla');
     expect(saveAIRecipeMock).not.toHaveBeenCalled();
   });
@@ -172,12 +179,26 @@ describe('generateWeeklyPlan', () => {
       // Stage 2: Monday uses a valid pool id; Tuesday uses a hallucinated id.
       JSON.stringify({
         days: [
-          { day: 'Monday', mainRecipeId: 'm1', snackRecipeIds: [] },
-          { day: 'Tuesday', mainRecipeId: 'not-in-pool', snackRecipeIds: [] },
+          { day: 'Monday', mainRecipeId: 'm1', sideRecipeIds: [], snackRecipeIds: [] },
+          { day: 'Tuesday', mainRecipeId: 'not-in-pool', sideRecipeIds: [], snackRecipeIds: [] },
         ],
       }),
-      // Stage 3 order matches generateWeeklyPlan: per-day, main-then-snacks.
-      // Monday main is in the pool, so first gap is Monday's snack.
+      // Stage 3 order matches generateWeeklyPlan: per-day, within day main-sides-snacks.
+      // Monday main is in the pool. First gap is Monday's 2 sides.
+      JSON.stringify({
+        name: 'Mon side 1',
+        description: '',
+        prepNotes: 'Cut',
+        ingredients: [{ name: 'carrots', quantity: '1', unit: 'medium' }],
+      }),
+      // Monday side 2
+      JSON.stringify({
+        name: 'Mon side 2',
+        description: '',
+        prepNotes: 'Wash',
+        ingredients: [{ name: 'apple', quantity: '1', unit: 'medium' }],
+      }),
+      // Then Monday's snack.
       JSON.stringify({
         name: 'Mon snack',
         description: '',
@@ -190,6 +211,20 @@ describe('generateWeeklyPlan', () => {
         description: 'Quick pasta',
         prepNotes: 'Boil and stir',
         ingredients: [{ name: 'peas', quantity: '1', unit: 'cup' }],
+      }),
+      // Then Tuesday's 2 sides.
+      JSON.stringify({
+        name: 'Tue side 1',
+        description: '',
+        prepNotes: 'Open',
+        ingredients: [{ name: 'cheese', quantity: '1', unit: 'oz' }],
+      }),
+      // Tuesday side 2
+      JSON.stringify({
+        name: 'Tue side 2',
+        description: '',
+        prepNotes: 'Slice',
+        ingredients: [{ name: 'tomato', quantity: '1', unit: 'medium' }],
       }),
       // Then Tuesday's snack.
       JSON.stringify({
@@ -211,12 +246,16 @@ describe('generateWeeklyPlan', () => {
 
     expect(items[0]!.lunches[0]!.name).toBe('Turkey wrap');
     expect(items[1]!.lunches[0]!.name).toBe('Pea pasta');
-    // saveAIRecipe should be called 3 times (1 main gap + 2 snack gaps).
-    expect(saveAIRecipeMock).toHaveBeenCalledTimes(3);
-    // Order: Mon snack, Tue main, Tue snack — per-day, main-then-snacks.
+    // saveAIRecipe should be called 7 times: Mon (2 sides + 1 snack) + Tue (1 main + 2 sides + 1 snack).
+    expect(saveAIRecipeMock).toHaveBeenCalledTimes(7);
+    // Order: Mon side 1, Mon side 2, Mon snack, Tue main, Tue side 1, Tue side 2, Tue snack.
     expect(saveAIRecipeMock.mock.calls.map((c) => c[0].mealType)).toEqual([
+      'side',
+      'side',
       'snack',
       'main',
+      'side',
+      'side',
       'snack',
     ]);
   });

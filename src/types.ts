@@ -43,6 +43,7 @@ export type LunchItem = {
   kidId: string;
   day: string;
   lunches: Dish[];
+  sides: Dish[];
   snacks: Dish[];
 };
 
@@ -73,7 +74,7 @@ export type ParsedSession = {
 };
 
 export type RecipeSource = 'curated' | 'ai' | 'user';
-export type RecipeMealType = 'main' | 'snack';
+export type RecipeMealType = 'main' | 'snack' | 'side';
 export type RecipeReaction = 'like' | 'dislike' | 'favorite';
 export type TagCategory = 'dietary' | 'format' | 'ingredient' | 'occasion';
 

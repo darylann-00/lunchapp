@@ -53,7 +53,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **ProfileTab** (`src/components/ProfileTab.tsx`) — edit kid profile and parent prefs. "Reset all data" deletes rows from Supabase via `clearAll`.
 
-- **AI layer** (`src/lib/ai.ts` + `src/lib/recipes.ts`) — `generateWeeklyPlan` runs a 3-stage flow: Stage 1 pulls a candidate pool from the `recipes` catalog (allergens/dietary/dislikes filtered; favorites + on-hand ingredients boosted); Stage 2 asks Sonnet to pick a main + N snacks per day from that pool; Stage 3 invents and saves any gap recipes via `generateRecipeForGap` + `saveAIRecipe`. `parseWeeklyNotes`, `generateGroceryList`, `regenerateDish` remain catalog-unaware for now. All POST to `/api/anthropic` which requires a valid Supabase auth token.
+- **AI layer** (`src/lib/ai.ts` + `src/lib/recipes.ts`) — `generateWeeklyPlan` runs a 3-stage flow: Stage 1 pulls a candidate pool from the `recipes` catalog (allergens/dietary/dislikes filtered; favorites + on-hand ingredients boosted); Stage 2 asks Sonnet to pick a main + 2 sides + N snacks per day from that pool; Stage 3 invents and saves any gap recipes via `generateRecipeForGap` + `saveAIRecipe`. Sides (fruit, veggies, crackers, cheese) are displayed stacked under the main in the Lunch column and editable via the 🥕 Sides tab in EditDayModal. `parseWeeklyNotes`, `generateGroceryList`, `regenerateDish` remain catalog-unaware for now. All POST to `/api/anthropic` which requires a valid Supabase auth token.
 
 - **API auth** (`api/_auth.ts`) — `requireAuth` helper validates the Supabase JWT on every `/api/anthropic` and `/api/transcribe` request.
 
@@ -83,7 +83,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 |-------|-------------|
 | `profiles` | `id` (auth user uuid PK), `kid` (jsonb), `parent_prefs` (jsonb) |
 | `weekly_plans` | `id` (uuid), `user_id`, `week_start_date` (date), `status`, `days` (text[]), `items` (jsonb), `grocery_list` (jsonb), unique on `(user_id, week_start_date)` |
-| `recipes` | `id` (uuid), `name`, `description`, `prep_notes`, `ingredients` (jsonb), `meal_type` (`'main' \| 'snack'`), `source` (`'curated' \| 'ai' \| 'user'`), `source_url`, `source_attribution`, `prep_time_minutes`, `created_by` (null = global, else user-private) |
+| `recipes` | `id` (uuid), `name`, `description`, `prep_notes`, `ingredients` (jsonb), `meal_type` (`'main' \| 'snack' \| 'side'`), `source` (`'curated' \| 'ai' \| 'user'`), `source_url`, `source_attribution`, `prep_time_minutes`, `created_by` (null = global, else user-private) |
 | `recipe_tags` | `id`, `name` (unique), `category` (`'dietary' \| 'format' \| 'ingredient' \| 'occasion'`) |
 | `recipe_tag_assignments` | `recipe_id`, `tag_id` (composite PK, many-to-many join) |
 | `recipe_feedback` | `user_id`, `recipe_id` (composite PK), `reaction` (`'like' \| 'dislike' \| 'favorite'`) |

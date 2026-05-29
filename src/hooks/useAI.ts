@@ -50,7 +50,7 @@ export function useAI() {
       parentPrefs: ParentPrefs;
       sessionNotes: string;
       day: string;
-      mealType: 'lunch' | 'snack';
+      mealType: 'lunch' | 'snack' | 'side';
       currentDish: Dish;
       userNote: string;
       otherDishesThisWeek: Dish[];

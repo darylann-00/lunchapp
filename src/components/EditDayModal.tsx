@@ -23,7 +23,7 @@ type Props = {
 
 export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDishes, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<LunchItem>(() => JSON.parse(JSON.stringify(item)));
-  const [activeType, setActiveType] = useState<'lunches' | 'snacks'>('lunches');
+  const [activeType, setActiveType] = useState<'lunches' | 'sides' | 'snacks'>('lunches');
   const [regenPrompts, setRegenPrompts] = useState<Record<string, string>>({});
   const { loadingIds, errorIds, regenerate } = useItemRegenerate([]);
 
@@ -63,7 +63,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
       parentPrefs: prefs,
       sessionNotes,
       day: item.day,
-      mealType: activeType === 'lunches' ? 'lunch' : 'snack',
+      mealType: activeType === 'lunches' ? 'lunch' : activeType === 'sides' ? 'side' : 'snack',
       currentDish: dish,
       userNote,
       otherDishesThisWeek: otherDishes,
@@ -101,7 +101,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
           </div>
           {/* Tab selector */}
           <div className="flex gap-2 mt-3">
-            {(['lunches', 'snacks'] as const).map((t) => (
+            {(['lunches', 'sides', 'snacks'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setActiveType(t)}
@@ -109,7 +109,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
                   activeType === t ? 'bg-white text-moku-dark' : 'bg-white/20 text-white'
                 }`}
               >
-                {t === 'lunches' ? '🍱 Lunches' : '🍎 Snacks'} ({draft[t].length})
+                {t === 'lunches' ? '🍱 Lunch' : t === 'sides' ? '🥕 Sides' : '🍎 Snacks'} ({draft[t].length})
               </button>
             ))}
           </div>
@@ -169,7 +169,7 @@ export default function EditDayModal({ item, kid, prefs, sessionNotes, otherDish
             onClick={addDish}
             className="w-full border-2 border-dashed border-moku-dark/30 rounded-xl py-2 text-xs font-fredoka text-moku-dark/50 hover:border-moku-blue hover:text-moku-blue transition-colors"
           >
-            + Add {activeType === 'lunches' ? 'lunch' : 'snack'}
+            + Add {activeType === 'lunches' ? 'lunch' : activeType === 'sides' ? 'side' : 'snack'}
           </button>
         </div>
 
