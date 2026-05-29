@@ -20,11 +20,14 @@ type Props = {
 export default function PrepModal({ item, prepProgress, onToggleStep, onClose }: Props) {
   const dayColor = DAY_COLORS[item.day] ?? 'bg-moku-blue';
 
-  const allDishes = [...item.lunches, ...item.sides, ...item.snacks];
+  const lunches = item.lunches ?? [];
+  const sides = item.sides ?? [];
+  const snacks = item.snacks ?? [];
+  const allDishes = [...lunches, ...sides, ...snacks];
 
   const getDishCategory = (dishId: string): 'lunch' | 'side' | 'snack' => {
-    if (item.lunches.some((d) => d.id === dishId)) return 'lunch';
-    if (item.sides.some((d) => d.id === dishId)) return 'side';
+    if (lunches.some((d) => d.id === dishId)) return 'lunch';
+    if (sides.some((d) => d.id === dishId)) return 'side';
     return 'snack';
   };
 
@@ -34,14 +37,14 @@ export default function PrepModal({ item, prepProgress, onToggleStep, onClose }:
 
   const menuSummary = () => {
     const parts: string[] = [];
-    if (item.lunches.length > 0) {
-      parts.push(item.lunches.map((d) => d.name).join(', '));
+    if (lunches.length > 0) {
+      parts.push(lunches.map((d) => d.name).join(', '));
     }
-    if (item.sides.length > 0) {
-      parts.push(item.sides.map((d) => d.name).join(', '));
+    if (sides.length > 0) {
+      parts.push(sides.map((d) => d.name).join(', '));
     }
-    if (item.snacks.length > 0) {
-      parts.push(item.snacks.map((d) => d.name).join(', '));
+    if (snacks.length > 0) {
+      parts.push(snacks.map((d) => d.name).join(', '));
     }
     return parts.join(', ');
   };
