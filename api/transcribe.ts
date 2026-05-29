@@ -1,6 +1,11 @@
 import { requireAuth } from './_auth.js';
 import { checkRateLimit } from './_ratelimit.js';
 
+// A weekly voice note is a few seconds; 15MB is generous headroom while still
+// blocking large uploads that would balloon input-token cost (audio is sent to
+// the model as a base64 document).
+const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
+
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireAuth(request);
   if (!auth.ok) return auth.response;
@@ -18,6 +23,10 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!audio || !(audio instanceof Blob)) {
     return Response.json({ error: 'Missing audio field' }, { status: 400 });
+  }
+
+  if (audio.size > MAX_AUDIO_BYTES) {
+    return Response.json({ error: 'Audio too large' }, { status: 413 });
   }
 
   const arrayBuffer = await audio.arrayBuffer();
