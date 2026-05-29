@@ -193,6 +193,13 @@ export async function getCandidateRecipes(
     return { r, score };
   });
 
+  // Shuffle within each score tier so the candidate pool varies across runs.
+  // Without this, same-score recipes always arrive in DB order and the model
+  // picks the same top-30 mains / top-20 snacks every generation.
+  for (let i = scored.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [scored[i], scored[j]] = [scored[j], scored[i]];
+  }
   scored.sort((a, b) => b.score - a.score);
 
   const mains: RecipeWithTags[] = [];
