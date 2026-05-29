@@ -96,11 +96,11 @@ export function RecipePicker({
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="luncharoo-border rounded-xl px-3 py-2 pr-10 text-sm font-fredoka text-luncharoo-dark bg-white focus:outline-none focus:ring-1 focus:ring-luncharoo-blue w-full"
+          className="luncharoo-border rounded-lg px-2 py-1.5 pr-8 text-xs font-fredoka text-luncharoo-dark bg-white focus:outline-none focus:ring-1 focus:ring-luncharoo-blue w-full"
         />
         <button
           onClick={handleCaretClick}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-luncharoo-dark hover:text-luncharoo-blue transition-colors"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-luncharoo-dark/40 hover:text-luncharoo-blue transition-colors"
           tabIndex={-1}
         >
           <svg
@@ -121,12 +121,12 @@ export function RecipePicker({
 
       {/* Dropdown list */}
       {isOpen && filtered.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white luncharoo-border rounded-xl luncharoo-shadow-sm z-50 max-h-48 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white luncharoo-border rounded-lg luncharoo-shadow-sm z-50 max-h-40 overflow-y-auto">
           {filtered.map((recipe, index) => (
             <button
               key={recipe.id}
               onClick={() => handleSelectRecipe(recipe)}
-              className={`w-full px-3 py-2 text-sm font-fredoka cursor-pointer hover:bg-luncharoo-blue/10 text-left flex items-center justify-between transition-colors ${
+              className={`w-full px-2 py-1.5 text-xs font-fredoka cursor-pointer hover:bg-luncharoo-blue/10 text-left flex items-center justify-between transition-colors ${
                 index < filtered.length - 1 ? 'border-b border-luncharoo-dark/10' : ''
               }`}
             >

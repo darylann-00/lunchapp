@@ -8,6 +8,7 @@ type Props = {
   dish: Dish;
   recipes: RecipeWithTags[];
   onUpdateDish: (dish: Dish) => void;
+  onRemove: () => void;
   onRegenerate: () => void;
   isRegenerating: boolean;
   regenError?: string;
@@ -18,6 +19,7 @@ export function DishRow({
   dish,
   recipes,
   onUpdateDish,
+  onRemove,
   onRegenerate,
   isRegenerating,
   regenError,
@@ -36,17 +38,17 @@ export function DishRow({
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3 py-2">
+    <div className="flex flex-col">
+      <div className="flex items-center gap-1.5 py-1">
         {/* Category label */}
-        <div className="w-[70px] flex-shrink-0">
-          <span className="text-xs font-bold uppercase text-luncharoo-coral font-fredoka">
+        <div className="w-[52px] flex-shrink-0">
+          <span className="text-[10px] font-bold uppercase text-luncharoo-coral font-fredoka">
             {categoryLabel}
           </span>
         </div>
 
         {/* Recipe picker */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <RecipePicker
             value={dish.name}
             recipes={recipes}
@@ -59,26 +61,33 @@ export function DishRow({
         <button
           onClick={onRegenerate}
           disabled={isRegenerating}
-          className="w-9 h-9 bg-luncharoo-blue text-white rounded-xl luncharoo-border luncharoo-shadow-sm luncharoo-press flex items-center justify-center text-sm disabled:opacity-50 flex-shrink-0"
+          className="w-7 h-7 bg-luncharoo-blue text-white rounded-lg luncharoo-border luncharoo-shadow-sm luncharoo-press flex items-center justify-center text-xs disabled:opacity-50 flex-shrink-0"
         >
           {isRegenerating ? (
-            <div className="w-3 h-3 border-2 border-luncharoo-dark/30 border-t-luncharoo-dark rounded-full animate-spin" />
+            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
             '✨'
           )}
         </button>
 
+        {/* Remove button */}
+        <button
+          onClick={onRemove}
+          className="w-7 h-7 text-luncharoo-coral/60 hover:text-luncharoo-coral hover:bg-luncharoo-coral/10 rounded-lg flex items-center justify-center text-sm flex-shrink-0 transition-colors"
+        >
+          ×
+        </button>
+
         {/* Prep time */}
-        <div className="w-[50px] flex-shrink-0 text-right">
-          <span className="text-xs text-slate-400 font-fredoka font-bold">
-            {dish.prepTimeMinutes ? `PREP ${dish.prepTimeMinutes}m` : '—'}
+        <div className="w-[36px] flex-shrink-0 text-right">
+          <span className="text-[10px] text-slate-400 font-fredoka font-bold">
+            {dish.prepTimeMinutes ? `${dish.prepTimeMinutes}m` : '—'}
           </span>
         </div>
       </div>
 
-      {/* Error message */}
       {regenError && (
-        <div className="text-xs text-red-600 pl-[70px]">
+        <div className="text-[10px] text-red-600 pl-[52px]">
           {regenError}
         </div>
       )}
