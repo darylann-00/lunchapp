@@ -90,15 +90,54 @@ export function autoTagRecipe(ingredients: Ingredient[]): string[] {
   return [...found];
 }
 
-// Lowercase-substring check: returns true if any ingredient name contains any
-// allergy term. Keeps it intentionally crude — defense in depth, not the only
-// allergen guard (the AI prompt repeats the rule).
-function ingredientsContainAllergen(ingredients: Ingredient[], allergies: string[]): boolean {
+// Canonical allergen → ingredient-name pattern. Keyed by the onboarding chip
+// values (see Onboarding.tsx DIETARY_OPTIONS). Patterns err toward
+// over-matching: dropping a safe recipe is acceptable; serving an allergen is
+// not. Notable product decisions encoded here: coconut is allowed under "tree
+// nuts"; plant milks/butters are excluded from "dairy"; "fish" and "shellfish"
+// stay distinct.
+const ALLERGEN_PATTERNS: Record<string, RegExp> = {
+  peanuts: /\bpeanut/i,
+  'tree nuts': /\b(?:almond|walnut|pecan|cashew|hazelnut|pistachio|macadamia|brazil nut|pine nut|praline|marzipan|nutella)(?:s|es)?\b|tree\s*nuts?/i,
+  dairy: /\b(?:cheese|cheddar|mozzarella|parmesan|yogurt|yoghurt|cream|custard|ghee|whey|casein|dairy|buttermilk)(?:s|es)?\b|(?<!(?:almond|oat|soy|coconut|rice|cashew|hemp|pea)\s)\bmilk\b|(?<!(?:almond|cashew|peanut|sunflower|seed|soy|coconut)\s)\bbutter\b/i,
+  eggs: /\begg(?!plant)|mayonnaise|\bmayo\b|aioli|meringue|frittata|omelet|quiche/i,
+  gluten: /\b(?:wheat|flour|bread|breadcrumb|pasta|noodle|cracker|tortilla|bun|bagel|pita|cereal|barley|rye|couscous|gluten|pretzel|crouton)(?:s|es)?\b/i,
+  fish: /\b(?:fish|salmon|tuna|cod|tilapia|halibut|trout|haddock|mackerel|sardine|anchovy|anchovies)(?:s|es)?\b/i,
+  shellfish: /\b(?:shellfish|shrimp|prawn|crab|lobster|clam|mussel|oyster|scallop|crayfish|squid|calamari)(?:s|es)?\b/i,
+  soy: /\b(?:soy|soya|soybean|tofu|edamame|tempeh|miso|tamari)(?:s|es)?\b/i,
+  sesame: /\b(?:sesame|tahini|hummus|halva|halvah)(?:s|es)?\b/i,
+  'red meat': /\b(?:beef|steak|pork|bacon|ham|prosciutto|sausage|salami|pepperoni|lamb|veal|venison|bison|chorizo|pancetta|meatball|hamburger)(?:s|es)?\b/i,
+  pork: /\b(?:pork|bacon|ham|prosciutto|sausage|salami|pepperoni|chorizo|pancetta|spam)(?:s|es)?\b/i,
+};
+
+// Common free-text variants → canonical key.
+const ALLERGEN_ALIASES: Record<string, string> = {
+  peanut: 'peanuts',
+  'tree nut': 'tree nuts',
+  treenuts: 'tree nuts',
+  milk: 'dairy',
+  egg: 'eggs',
+  wheat: 'gluten',
+  soya: 'soy',
+};
+
+// Returns true if any ingredient name matches any of the kid's allergies.
+// Known allergens (and their aliases) use the curated pattern map; unknown
+// free-text allergies fall back to a substring check so we never lose coverage.
+// Defense in depth — the AI prompts repeat the rule, but this is the reliable guard.
+export function ingredientsContainAllergen(ingredients: Ingredient[], allergies: string[]): boolean {
   if (allergies.length === 0) return false;
-  const lowerAllergies = allergies.map((a) => a.toLowerCase().trim()).filter(Boolean);
-  return ingredients.some((ing) => {
-    const name = ing.name.toLowerCase();
-    return lowerAllergies.some((a) => name.includes(a));
+  const names = ingredients.map((ing) => ing.name.toLowerCase());
+
+  return allergies.some((raw) => {
+    const allergy = raw.toLowerCase().trim().replace(/\s+/g, ' ');
+    if (!allergy) return false;
+
+    const canonical = ALLERGEN_PATTERNS[allergy] ? allergy : ALLERGEN_ALIASES[allergy];
+    const pattern = canonical ? ALLERGEN_PATTERNS[canonical] : undefined;
+
+    if (pattern) return names.some((n) => pattern.test(n));
+    return names.some((n) => n.includes(allergy));
   });
 }
 
