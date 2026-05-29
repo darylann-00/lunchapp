@@ -53,10 +53,14 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
       return;
     }
 
+    // Flush any unsent text from the input so it isn't silently dropped
+    const pendingText = inputRef.current?.value.trim();
+    const fullNotes = pendingText ? (notes ? `${notes}\n${pendingText}` : pendingText) : notes;
+
     const session: ParsedSession = {
       daysNeeded: selectedDays,
       ingredientsOnHand: [],
-      specialNotes: notes.trim(),
+      specialNotes: fullNotes.trim(),
       prepTimeAvailable: 'medium',
     };
 
