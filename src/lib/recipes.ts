@@ -31,6 +31,7 @@ export type RecipeWithTags = {
 // Approximate split for the candidate pool sent to the AI in Stage 2.
 const TARGET_MAINS = 30;
 const TARGET_SNACKS = 20;
+const TARGET_SIDES = 20;
 
 // Substring → tag heuristic for AI-generated recipes (Stage 3). Deliberately
 // small; exhaustive tagging is owned by the curated seed script.
@@ -197,13 +198,15 @@ export async function getCandidateRecipes(
 
   const mains: RecipeWithTags[] = [];
   const snacks: RecipeWithTags[] = [];
+  const sides: RecipeWithTags[] = [];
   for (const { r } of scored) {
     if (r.mealType === 'main' && mains.length < TARGET_MAINS) mains.push(r);
     else if (r.mealType === 'snack' && snacks.length < TARGET_SNACKS) snacks.push(r);
-    if (mains.length >= TARGET_MAINS && snacks.length >= TARGET_SNACKS) break;
+    else if (r.mealType === 'side' && sides.length < TARGET_SIDES) sides.push(r);
+    if (mains.length >= TARGET_MAINS && snacks.length >= TARGET_SNACKS && sides.length >= TARGET_SIDES) break;
   }
 
-  return [...mains, ...snacks];
+  return [...mains, ...snacks, ...sides];
 }
 
 // Stage 3: persist an AI-invented recipe to the user's private catalog.

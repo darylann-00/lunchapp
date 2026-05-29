@@ -90,6 +90,11 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditDay, onGenerat
                             +{item.lunches.length - 1} more
                           </span>
                         )}
+                        {(item.sides ?? []).length > 0 && (
+                          <span className="text-xs text-slate-400 block mt-0.5 leading-tight line-clamp-1">
+                            🥕 {(item.sides ?? []).map((s) => s.name).join(' · ')}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-xs text-slate-300 italic">—</span>

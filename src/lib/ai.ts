@@ -9,6 +9,10 @@ import {
   type RecipeWithTags,
 } from './recipes';
 
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const SIDES_PER_DAY = 2;
+
 // ── Utilities ────────────────────────────────────────────────────────────────
 
 export function stripFences(text: string): string {
@@ -118,6 +122,7 @@ Parent's notes: ${notes || '(none)'}`,
 type DayPick = {
   day: string;
   mainRecipeId: string | null;
+  sideRecipeIds: string[];
   snackRecipeIds: string[];
   gap?: string;
 };
@@ -152,17 +157,18 @@ async function runPlanSelection(
 3. Use ingredients the parent mentioned having on hand when possible — the pool is already sorted with those boosted.
 4. Beat the sandwich rut: rotate formats across the week unless the repetition preference says otherwise. Tag categories like "format" and "ingredient" will help.
 5. Minimize unique ingredients across the week. Reuse proteins/produce/dairy across days when sensible (household size: ${parentPrefs.householdSize}).
-6. Each day must have exactly one main and ${snacksPerDay} snack(s) (or report a gap).
+6. Each day must have exactly one main, ${SIDES_PER_DAY} side(s), and ${snacksPerDay} snack(s) (or report a gap).
+7. For sides, pick items that complement the main and round out the lunchbox — add fruit, veg, dairy, or crackers the main is missing nutritionally.
 
 ## Gap handling
-If you can't find a good main for a day — for example the parent mentioned a specific ingredient and no pool recipe uses it as the anchor — return that day as { "day": "...", "mainRecipeId": null, "snackRecipeIds": [...], "gap": "short reason, e.g. 'no candidate uses peas as anchor'" }. We will invent a recipe to fill it in a follow-up step. Gap snack slots are fine — just leave snackRecipeIds shorter for that day with a gap reason mentioning snacks.
+If you can't find a good main for a day — for example the parent mentioned a specific ingredient and no pool recipe uses it as the anchor — return that day as { "day": "...", "mainRecipeId": null, "sideRecipeIds": [...], "snackRecipeIds": [...], "gap": "short reason, e.g. 'no candidate uses peas as anchor'" }. We will invent a recipe to fill it in a follow-up step. Gap snack or side slots are fine — just leave those arrays shorter for that day with a gap reason mentioning snacks/sides.
 
 ## Output
 
 Output ONLY a valid JSON object, no preamble, no markdown:
 {
   "days": [
-    { "day": "Monday", "mainRecipeId": "uuid-from-pool", "snackRecipeIds": ["uuid", "uuid"] }
+    { "day": "Monday", "mainRecipeId": "uuid-from-pool", "sideRecipeIds": ["uuid", "uuid"], "snackRecipeIds": ["uuid", "uuid"] }
   ]
 }`, cache_control: { type: 'ephemeral' as const } }],
     messages: [
@@ -219,10 +225,12 @@ export async function generateRecipeForGap(args: {
     ingredients: Ingredient[];
   };
 
+  const mealTypeLabel = mealType === 'main' ? 'lunch main' : mealType === 'side' ? 'lunchbox side' : 'snack';
+
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 2048,
-    system: [{ type: 'text' as const, text: `You are inventing ONE ${mealType === 'main' ? 'lunch main' : 'snack'} to fill a gap the catalog couldn't cover. Real life, not Pinterest. Assembly under 10 minutes if possible.
+    system: [{ type: 'text' as const, text: `You are inventing ONE ${mealTypeLabel} to fill a gap the catalog couldn't cover. Real life, not Pinterest. Assembly under 10 minutes if possible.
 
 ## Rules (in priority order)
 1. SAFETY: never include any allergen listed in the kid's allergies. Respect school/camp rules absolutely.
@@ -318,6 +326,34 @@ export async function generateWeeklyPlan(
       lunches.push(recipeToDish(saved));
     }
 
+    const pickedSides = (pick?.sideRecipeIds ?? [])
+      .map((id) => candidateById.get(id))
+      .filter((r): r is RecipeWithTags => Boolean(r))
+      .slice(0, SIDES_PER_DAY);
+
+    const sides: Dish[] = [];
+    for (const s of pickedSides) sides.push(recipeToDish(s));
+
+    while (sides.length < SIDES_PER_DAY) {
+      const invented = await generateRecipeForGap({
+        kid,
+        parentPrefs,
+        session,
+        day,
+        mealType: 'side',
+        gapReason: 'not enough sides selected from the pool',
+      });
+      const saved = await saveAIRecipe({
+        name: invented.name,
+        description: invented.description,
+        prepNotes: invented.prepNotes,
+        ingredients: invented.ingredients,
+        mealType: 'side',
+        tags: autoTagRecipe(invented.ingredients),
+      });
+      sides.push(recipeToDish(saved));
+    }
+
     const pickedSnacks = (pick?.snackRecipeIds ?? [])
       .map((id) => candidateById.get(id))
       .filter((r): r is RecipeWithTags => Boolean(r))
@@ -350,6 +386,7 @@ export async function generateWeeklyPlan(
       kidId: kid.id,
       day,
       lunches,
+      sides,
       snacks,
     });
   }
@@ -367,7 +404,7 @@ export async function generateGroceryList(
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: [{ type: 'text' as const, text: `You are building a grocery shopping list from approved weekly lunch plans. Walk every ingredient in every dish (lunches and snacks) across all days.
+    system: [{ type: 'text' as const, text: `You are building a grocery shopping list from approved weekly lunch plans. Walk every ingredient in every dish (lunches, sides, and snacks) across all days.
 
 Rules:
 1. Deduplicate by ingredient name. Sum quantities where units match; list separate entries when units differ.
@@ -400,7 +437,7 @@ export async function regenerateDish(args: {
   parentPrefs: ParentPrefs;
   sessionNotes: string;
   day: string;
-  mealType: 'lunch' | 'snack';
+  mealType: 'lunch' | 'snack' | 'side';
   currentDish: Dish;
   userNote: string;
   otherDishesThisWeek: Dish[];
