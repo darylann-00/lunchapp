@@ -223,9 +223,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       try {
-        const result = await ai.generateWeeklyPlan(session, kid, prefs);
+        const parsedSession = await ai.parseWeeklyNotes(
+          session.specialNotes,
+          session.daysNeeded,
+          kid,
+          prefs
+        );
+        const result = await ai.generateWeeklyPlan(parsedSession, kid, prefs);
         const itemsWithKid = result.items.map((item) => ({ ...item, kidId: kid.id }));
-        await savePlan(weekStartDate, session.daysNeeded, session.specialNotes, itemsWithKid);
+        await savePlan(weekStartDate, parsedSession.daysNeeded, parsedSession.specialNotes, itemsWithKid);
         setBackgroundGen({ active: false, weekStartDate: null, error: null });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Generation failed';
