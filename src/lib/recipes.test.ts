@@ -15,7 +15,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { autoTagRecipe, getCandidateRecipes, saveAIRecipe } from './recipes';
+import { autoTagRecipe, getCandidateRecipes, ingredientsContainAllergen, saveAIRecipe } from './recipes';
 
 const KID: Kid = {
   id: 'kid-1',
@@ -298,5 +298,63 @@ describe('saveAIRecipe', () => {
         tags: [],
       })
     ).rejects.toThrow(/not authenticated/i);
+  });
+});
+
+describe('ingredientsContainAllergen', () => {
+  const ing = (name: string): Ingredient => ({ name, quantity: '1', unit: 'x' });
+
+  it('blocks allergen-containing ingredients (real onboarding values)', () => {
+    expect(ingredientsContainAllergen([ing('peanut butter')], ['peanuts'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('cheddar cheese')], ['dairy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('whole milk')], ['dairy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('butter')], ['dairy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('greek yogurt')], ['dairy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('buttermilk')], ['dairy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('egg')], ['eggs'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('mayonnaise')], ['eggs'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('whole wheat bread')], ['gluten'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('pasta')], ['gluten'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('almonds')], ['tree nuts'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('cashews')], ['tree nuts'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('almond milk')], ['tree nuts'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('shrimp')], ['shellfish'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('salmon fillet')], ['fish'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('tofu')], ['soy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('edamame')], ['soy'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('tahini')], ['sesame'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('hummus')], ['sesame'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('bacon')], ['pork'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('ham')], ['pork'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('ground beef')], ['red meat'])).toBe(true);
+  });
+
+  it('does not over-filter safe lookalikes', () => {
+    expect(ingredientsContainAllergen([ing('eggplant')], ['eggs'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('graham cracker')], ['pork'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('peanut butter')], ['dairy'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('sunflower seed butter')], ['dairy'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('almond milk')], ['dairy'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('coconut')], ['tree nuts'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('coconut milk')], ['tree nuts'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('peas')], ['peanuts'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('shrimp')], ['fish'])).toBe(false);
+    expect(ingredientsContainAllergen([ing('salmon')], ['shellfish'])).toBe(false);
+  });
+
+  it('normalizes alias allergen names', () => {
+    expect(ingredientsContainAllergen([ing('peanut butter')], ['peanut'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('cheese')], ['milk'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('mayonnaise')], ['egg'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('bread')], ['wheat'])).toBe(true);
+  });
+
+  it('falls back to substring for unknown allergens', () => {
+    expect(ingredientsContainAllergen([ing('kiwi slices')], ['kiwi'])).toBe(true);
+    expect(ingredientsContainAllergen([ing('apple')], ['kiwi'])).toBe(false);
+  });
+
+  it('returns false for empty allergies list', () => {
+    expect(ingredientsContainAllergen([ing('anything')], [])).toBe(false);
   });
 });

@@ -171,7 +171,7 @@ recipes (
   description         text,                       -- null until backfilled
   prep_notes          text,
   ingredients         jsonb,                      -- Ingredient[]
-  meal_type           text ('main' | 'snack'),
+  meal_type           text ('main' | 'snack' | 'side'),
   is_packaged         boolean default false,
   source              text ('curated' | 'ai' | 'user'),
   source_url          text,
