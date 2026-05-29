@@ -30,7 +30,8 @@ type DbPlan = {
   week_start_date: string;
   status: 'draft' | 'final';
   days: string[];
-  items: LunchItem[];
+  // Rows predating the `sides` field may be missing dish arrays; normalized in dbPlanToWeeklyPlan.
+  items: (Omit<LunchItem, 'lunches' | 'sides' | 'snacks'> & Partial<Pick<LunchItem, 'lunches' | 'sides' | 'snacks'>>)[];
   grocery_list: GroceryItem[] | null;
   session_notes: string;
   prep_progress: Record<string, number[]> | null;
@@ -44,7 +45,14 @@ function dbPlanToWeeklyPlan(row: DbPlan): WeeklyPlan {
     weekStartDate: row.week_start_date,
     status: row.status,
     days: row.days,
-    items: row.items,
+    // Plans saved before the `sides` field existed have no `sides` key; default all
+    // dish arrays so consumers (PrepModal, EditDayModal, grocery, regenerate) can iterate safely.
+    items: (row.items ?? []).map((item) => ({
+      ...item,
+      lunches: item.lunches ?? [],
+      sides: item.sides ?? [],
+      snacks: item.snacks ?? [],
+    })),
     groceryList: row.grocery_list,
     sessionNotes: row.session_notes,
     prepProgress: row.prep_progress ?? {},
