@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Ingredient,
   Kid,
@@ -188,17 +188,18 @@ function rowToRecipe(row: RecipeRow): RecipeWithTags {
 //   4. Filter by dietary flags via tags.
 //   5. Boost favorites and on-hand-ingredient matches, then trim to ~50.
 export async function getCandidateRecipes(
+  db: SupabaseClient,
   kid: Kid,
   _parentPrefs: ParentPrefs,
   session: ParsedSession
 ): Promise<RecipeWithTags[]> {
   const [recipesRes, feedbackRes] = await Promise.all([
-    supabase
+    db
       .from('recipes')
       .select(
         'id, name, description, prep_notes, ingredients, meal_type, is_packaged, source, source_url, source_attribution, prep_time_minutes, created_by, recipe_tag_assignments(recipe_tags(name))'
       ),
-    supabase.from('recipe_feedback').select('recipe_id, reaction'),
+    db.from('recipe_feedback').select('recipe_id, reaction'),
   ]);
 
   if (recipesRes.error) throw new Error(`Failed to load recipes: ${recipesRes.error.message}`);
@@ -258,7 +259,7 @@ export async function getCandidateRecipes(
 // Stage 3: persist an AI-invented recipe to the user's private catalog.
 // Returns the saved row hydrated with its tag names so callers can hand it to
 // `recipeToDish` and treat it like any catalog recipe.
-export async function saveAIRecipe(args: {
+export async function saveAIRecipe(db: SupabaseClient, userId: string, args: {
   name: string;
   description: string;
   prepNotes: string;
@@ -267,11 +268,7 @@ export async function saveAIRecipe(args: {
   isPackaged?: boolean;
   tags: string[];
 }): Promise<RecipeWithTags> {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userData.user) throw new Error('Not authenticated');
-  const userId = userData.user.id;
-
-  const insertRes = await supabase
+  const insertRes = await db
     .from('recipes')
     .insert({
       name: args.name,
@@ -296,7 +293,7 @@ export async function saveAIRecipe(args: {
   const savedTags: string[] = [];
 
   if (args.tags.length > 0) {
-    const tagRes = await supabase
+    const tagRes = await db
       .from('recipe_tags')
       .select('id, name')
       .in('name', args.tags);
@@ -308,7 +305,7 @@ export async function saveAIRecipe(args: {
     const tagRows = (tagRes.data ?? []) as Array<{ id: string; name: string }>;
     if (tagRows.length > 0) {
       const assignments = tagRows.map((t) => ({ recipe_id: recipeId, tag_id: t.id }));
-      const assignRes = await supabase.from('recipe_tag_assignments').insert(assignments);
+      const assignRes = await db.from('recipe_tag_assignments').insert(assignments);
       if (assignRes.error) {
         throw new Error(`Failed to assign recipe tags: ${assignRes.error.message}`);
       }
