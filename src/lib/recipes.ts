@@ -338,10 +338,11 @@ export function recipeToDish(recipe: RecipeWithTags): Dish {
 }
 
 export async function getRecipesForPicker(
+  db: SupabaseClient,
   mealType: RecipeMealType,
   kid: Kid
 ): Promise<RecipeWithTags[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('recipes')
     .select(
       'id, name, description, prep_notes, ingredients, meal_type, is_packaged, source, source_url, source_attribution, prep_time_minutes, created_by, recipe_tag_assignments(recipe_tags(name))'
