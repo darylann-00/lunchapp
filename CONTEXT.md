@@ -41,7 +41,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **Onboarding** (`src/pages/Onboarding.tsx`) — multi-step form collecting kid profile (name, age, allergies, dislikes, likes, repetition preference, snack config, dietary flags, school rules) and parent prefs. Protected by `RequireAuth`. Redirected to from `RequireKid` guard when no kid exists.
 
-- **BentoShell** (`src/App.tsx`) — three-tab shell (Lunch Plan / Grocery / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). FontAwesome icons in the bottom nav; no FABs.
+- **BentoShell** (`src/App.tsx`) — four-tab shell (Lunch Plan / Grocery / Recipes / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). FontAwesome icons in the bottom nav; no FABs. The Recipes tab renders `RecipeBrowsePane` in its own full-height container (not the shared padded scroll div) so its filter bar stays fixed and only its recipe list scrolls.
 
 - **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen overlay. Day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Plan generates in the background and saves as `'draft'`; on completion the PlanReviewPane auto-opens. `ParsedSession` is built client-side directly from wizard state; `parseWeeklyNotes` is intentionally skipped here.
 
@@ -54,6 +54,8 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 - **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish shows its ingredients (quantity + unit + name) followed by its `prepNotes` split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`). Catalog-sourced dishes show a "via [Source]" attribution link under the dish name.
 
 - **GroceryTab** (`src/components/GroceryTab.tsx`) — generates and displays the deduped grocery list for the current week's plan, grouped by category.
+
+- **RecipeBrowsePane** (`src/components/RecipeBrowsePane.tsx`) — the Recipes tab. Fetches all recipes + the current user's feedback on mount. Filter bar: search, meal type chips (All/Main/Snack/Side), prep time chips (Any/≤10 min/11–25 min/25+ min). Each recipe card shows title, description (2-line clamp), prep time badge, meal type badge, ❤️ favorite button, and 🚫 hide button. Toggling a reaction calls `upsertRecipeFeedback` (in `recipes.ts`) and updates state optimistically. Footer has a "Show hidden" toggle (to surface disliked recipes) and a live filtered count. Feedback written here flows directly into plan generation — favorites are boosted in Stage 1, dislikes are excluded.
 
 - **ProfileTab** (`src/components/ProfileTab.tsx`) — edit kid profile and parent prefs. "Reset all data" deletes rows from Supabase via `clearAll`.
 
@@ -101,7 +103,7 @@ Migrations live in `supabase/migrations/`. The recipe catalog is seeded from two
 
 ## Next Priorities
 
-1. Thumbs up / down / favorite UI on each dish (writes to `recipe_feedback`).
+1. Thumbs up / down / favorite UI on each dish in the plan (writes to `recipe_feedback`; browse-level feedback via RecipeBrowsePane is done).
 2. Update `regenerateDish` to also pull replacements from the catalog before falling back to AI.
 3. Multi-kid support — currently hard-coded to `kids[0]` everywhere.
 4. Plan history view — browse and compare past weeks.

@@ -12,14 +12,15 @@ import ProfileTab from './components/ProfileTab';
 import WizardOverlay from './components/WizardOverlay';
 import PlanReviewPane from './components/PlanReviewPane';
 import PrepModal from './components/PrepModal';
+import RecipeBrowsePane from './components/RecipeBrowsePane';
 import { getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
 import { toggleStep } from './lib/prepSteps';
 import type { LunchItem } from './types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBoxArchive, faClipboardList, faUserNinja, type IconDefinition } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faClipboardList, faUserNinja, faUtensils, type IconDefinition } from '@fortawesome/free-solid-svg-icons';
 import './index.css';
 
-type Tab = 'lunch' | 'grocery' | 'profile';
+type Tab = 'lunch' | 'grocery' | 'recipes' | 'profile';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -75,6 +76,7 @@ function BentoShell() {
   const TAB_BTNS: { id: Tab; icon: IconDefinition; label: string }[] = [
     { id: 'lunch', icon: faBoxArchive, label: 'Lunch Plan' },
     { id: 'grocery', icon: faClipboardList, label: 'Grocery' },
+    { id: 'recipes', icon: faUtensils, label: 'Recipes' },
     { id: 'profile', icon: faUserNinja, label: 'Profile' },
   ];
 
@@ -158,28 +160,34 @@ function BentoShell() {
           </div>
         )}
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto px-3 pt-3 pb-20 z-10">
-          {activeTab === 'lunch' && (
-            <LunchPlanTab
-              plan={activePlan}
-              weekStartDate={weekStart}
-              onEditPlan={() => setReviewOpen(true)}
-              onPrepDay={setPrepItem}
-              onGenerateClick={() => setWizardOpen(true)}
-            />
-          )}
-          {activeTab === 'grocery' && (
-            <GroceryTab showToast={showToast} />
-          )}
-          {activeTab === 'profile' && (
-            <ProfileTab
-              kid={kid}
-              prefs={prefs}
-              onSaved={() => showToast('✅ Profile saved!')}
-            />
-          )}
-        </div>
+        {/* Tab content — Recipes tab manages its own scroll; others share the padded container */}
+        {activeTab === 'recipes' ? (
+          <div className="flex-1 min-h-0 z-10">
+            <RecipeBrowsePane />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-20 z-10">
+            {activeTab === 'lunch' && (
+              <LunchPlanTab
+                plan={activePlan}
+                weekStartDate={weekStart}
+                onEditPlan={() => setReviewOpen(true)}
+                onPrepDay={setPrepItem}
+                onGenerateClick={() => setWizardOpen(true)}
+              />
+            )}
+            {activeTab === 'grocery' && (
+              <GroceryTab showToast={showToast} />
+            )}
+            {activeTab === 'profile' && (
+              <ProfileTab
+                kid={kid}
+                prefs={prefs}
+                onSaved={() => showToast('✅ Profile saved!')}
+              />
+            )}
+          </div>
+        )}
 
         {/* Bottom nav */}
         <nav className="bg-white luncharoo-border-t h-16 flex items-center justify-around px-4 relative z-20 select-none">
