@@ -334,5 +334,32 @@ export function recipeToDish(recipe: RecipeWithTags): Dish {
     prepNotes: recipe.prepNotes,
     ingredients: recipe.ingredients,
     isPackaged: recipe.isPackaged,
+    prepTimeMinutes: recipe.prepTimeMinutes,
   };
+}
+
+export async function getRecipesForPicker(
+  mealType: RecipeMealType,
+  kid: Kid
+): Promise<RecipeWithTags[]> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select(
+      'id, name, description, prep_notes, ingredients, meal_type, is_packaged, source, source_url, source_attribution, prep_time_minutes, created_by, recipe_tag_assignments(recipe_tags(name))'
+    )
+    .eq('meal_type', mealType)
+    .order('name');
+
+  if (error) throw new Error(`Failed to load recipes: ${error.message}`);
+
+  const rows = (data ?? []) as unknown as RecipeRow[];
+
+  return rows
+    .map(rowToRecipe)
+    .filter((r) => !ingredientsContainAllergen(r.ingredients, kid.allergies))
+    .filter((r) => {
+      if (kid.isVegan) return r.tags.includes('vegan');
+      if (kid.isVegetarian) return r.tags.includes('vegetarian') || r.tags.includes('vegan');
+      return true;
+    });
 }

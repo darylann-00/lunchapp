@@ -43,13 +43,15 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **BentoShell** (`src/App.tsx`) — three-tab shell (Lunch Plan / Grocery / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). FontAwesome icons in the bottom nav; no FABs.
 
-- **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen two-step overlay. Step 1: day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Step 2: per-day preview → "Apply Plan" saves to Supabase via AppContext. `ParsedSession` is built client-side directly from wizard state; `parseWeeklyNotes` is intentionally skipped here.
+- **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen overlay. Day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Plan generates in the background and saves as `'draft'`; on completion the PlanReviewPane auto-opens. `ParsedSession` is built client-side directly from wizard state; `parseWeeklyNotes` is intentionally skipped here.
 
-- **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan as a 3-column grid (Day / Main Lunch / Snacks). Everything is visible at once: sides render stacked under each main, snacks each in their own box, no truncation or "see more". Tapping a row opens EditDayModal; tapping the day pill opens PrepModal. Fully-prepped dishes get a strikethrough + DONE stamp. Empty state prompts the wizard.
+- **PlanReviewPane** (`src/components/PlanReviewPane.tsx`) — full-screen overlay showing the full week's plan for review/editing. Each dish row (`DishRow`) shows category label, a `RecipePicker` combobox (pick from catalog or type custom name), AI regenerate button, and labeled prep time. "Approve Plan" finalizes a draft; "Save Changes" updates an existing plan. Replaces EditDayModal.
+
+- **RecipePicker** (`src/components/RecipePicker.tsx`) — combobox that filters the recipe catalog by meal type + kid allergens/dietary, with free-text fallback for custom dish names.
+
+- **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan as a 3-column grid (Day / Main Lunch / Snacks). Everything is visible at once: sides render stacked under each main, snacks each in their own box, no truncation or "see more". Draft plans show a "Review Plan" banner; finalized plans show an edit pencil to re-enter the review pane. Tapping the day pill opens PrepModal. Fully-prepped dishes get a strikethrough + DONE stamp. Empty state prompts the wizard.
 
 - **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish shows its ingredients (quantity + unit + name) followed by its `prepNotes` split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`).
-
-- **EditDayModal** (`src/components/EditDayModal.tsx`) — regenerates individual lunches or snacks with a note via `regenerateDish`.
 
 - **GroceryTab** (`src/components/GroceryTab.tsx`) — generates and displays the deduped grocery list for the current week's plan, grouped by category.
 
@@ -70,9 +72,10 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
      ↓
 /  BentoShell
    ├── Lunch Plan tab
-   │    ├── WizardOverlay (2-step: notes → review)
-   │    │    └── generateWeeklyPlan → LunchItem[]
-   │    └── EditDayModal → regenerateDish
+   │    ├── WizardOverlay (notes → background generate → draft)
+   │    │    └── generateWeeklyPlan → LunchItem[] (saved as draft)
+   │    └── PlanReviewPane (review/edit → finalize or save changes)
+   │         └── RecipePicker + AI regenerateDish
    ├── Grocery tab → generateGroceryList → GroceryItem[]
    └── Profile tab → edit Kid + ParentPrefs, sign out, reset
 ```
