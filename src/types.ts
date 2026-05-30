@@ -37,6 +37,10 @@ export type Dish = {
   ingredients: Ingredient[];
   isPackaged: boolean;
   prepTimeMinutes?: number | null;
+  // Present only for catalog-sourced dishes; absent for AI/user dishes and
+  // plans generated before attribution was threaded through.
+  sourceUrl?: string | null;
+  sourceAttribution?: string | null;
 };
 
 export type LunchItem = {

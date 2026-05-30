@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, Dish } from '../types';
 import type { RecipeWithTags } from '../lib/recipes';
 import { getRecipesForPicker } from '../lib/recipes';
+import { supabase } from '../lib/supabase';
 import { getDayDate } from '../lib/dateUtils';
 import { DishRow } from './DishRow';
 import { useItemRegenerate } from '../hooks/useAI';
@@ -61,9 +62,9 @@ export default function PlanReviewPane({ plan, kid, prefs, onFinalize, onClose }
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      getRecipesForPicker('main', kid),
-      getRecipesForPicker('side', kid),
-      getRecipesForPicker('snack', kid),
+      getRecipesForPicker(supabase, 'main', kid),
+      getRecipesForPicker(supabase, 'side', kid),
+      getRecipesForPicker(supabase, 'snack', kid),
     ]).then(([mains, sides, snacks]) => {
       if (!cancelled) setRecipes({ main: mains, side: sides, snack: snacks });
     });

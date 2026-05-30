@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'csv-parse/sync';
 import Anthropic from '@anthropic-ai/sdk';
@@ -9,13 +9,25 @@ import type { Ingredient } from '../src/types.ts';
 
 // Resolve paths from this script's location
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CSV_PATH = resolve(__dirname, 'seed/lunchbox_snack_recipes_ALL.csv');
+
+// Parse optional --csv=<path> flag from process.argv
+function resolveCsvPath(): string {
+  const csvArg = process.argv.find((arg) => arg.startsWith('--csv='));
+  if (csvArg) {
+    const csvPath = csvArg.slice('--csv='.length);
+    return isAbsolute(csvPath) ? csvPath : resolve(process.cwd(), csvPath);
+  }
+  return resolve(__dirname, 'seed/lunchbox_snack_recipes_ALL.csv');
+}
+
+const CSV_PATH = resolveCsvPath();
 const JSON_OUT_PATH = resolve(__dirname, 'seed/recipes_seed.json');
 const FAILURES_PATH = resolve(__dirname, 'seed/recipes_seed.failures.json');
 
 const SOURCE_ATTRIBUTION_BY_DOMAIN: Record<string, string> = {
   'yummytoddlerfood.com': 'Yummy Toddler Food',
   'weelicious.com': 'Weelicious',
+  'momables.com': 'MOMables',
 };
 
 // Tag category lookup: maps each tag to its category
@@ -103,12 +115,22 @@ type FailureRecord = {
   raw_row: RecipeRow;
 };
 
-async function parseRecipesWithClaude(rows: RecipeRow[]): Promise<{
+async function parseRecipesWithClaude(
+  rows: RecipeRow[],
+  opts: {
+    existingRecipes: CleanedRecipe[];
+    doneSources: Set<string>;
+    flush: (recipes: CleanedRecipe[], failures: FailureRecord[]) => void;
+  },
+): Promise<{
   recipes: CleanedRecipe[];
   failures: FailureRecord[];
 }> {
   const client = new Anthropic();
-  const recipes: CleanedRecipe[] = [];
+  // Seed recipes with anything already cleaned in a prior (possibly interrupted)
+  // run so the incremental flush always writes the complete set. Failures start
+  // fresh — a previously-failed row isn't in doneSources, so it gets retried.
+  const recipes: CleanedRecipe[] = [...opts.existingRecipes];
   const failures: FailureRecord[] = [];
 
   const CLAUDE_PROMPT = `You are cleaning a single kid-friendly recipe to import into a database. The input CSV row may represent ONE recipe or MULTIPLE variants (signaled by "||" separators in the ingredients string, e.g. "TURKEY: ... || NUTELLA: ..."). Split multi-variants into separate recipes.
@@ -151,6 +173,11 @@ OUTPUT ONLY a JSON array (even for a single recipe). No preamble, no markdown, n
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
+    // Resume support: skip rows whose source was already cleaned in a prior run.
+    if (opts.doneSources.has(row.source)) {
+      console.log(`  ⏭  [${i + 1}/${rows.length}] ${row.recipe_name} (already done, skipping)`);
+      continue;
+    }
     try {
       const userMessage = `
 recipe_name: ${row.recipe_name}
@@ -214,6 +241,9 @@ source: ${row.source}
       });
       console.error(`  ✗ [${i + 1}/${rows.length}] ${row.recipe_name}: ${errorMsg}`);
     }
+    // Persist after every row so an interrupted run never loses progress (and a
+    // re-run skips what's already done — see doneSources above).
+    opts.flush(recipes, failures);
   }
 
   return { recipes, failures };
@@ -248,7 +278,29 @@ async function defaultMode(): Promise<void> {
 
   console.log(`Found ${rows.length} recipes. Calling Claude...\n`);
 
-  const { recipes, failures } = await parseRecipesWithClaude(rows);
+  // Resume: load any recipes/failures from a prior interrupted run. We key on
+  // source_url — re-running re-attempts only rows that were never cleaned.
+  let existingRecipes: CleanedRecipe[] = [];
+  if (existsSync(JSON_OUT_PATH)) {
+    existingRecipes = JSON.parse(readFileSync(JSON_OUT_PATH, 'utf-8')) as CleanedRecipe[];
+  }
+  const doneSources = new Set(existingRecipes.map((r) => r.source_url));
+  if (doneSources.size > 0) {
+    console.log(`↻ Resuming: ${existingRecipes.length} recipes from ${doneSources.size} sources already cleaned.\n`);
+  }
+
+  const flush = (recipes: CleanedRecipe[], failures: FailureRecord[]): void => {
+    writeFileSync(JSON_OUT_PATH, JSON.stringify(recipes, null, 2), 'utf-8');
+    if (failures.length > 0) {
+      writeFileSync(FAILURES_PATH, JSON.stringify(failures, null, 2), 'utf-8');
+    }
+  };
+
+  const { recipes, failures } = await parseRecipesWithClaude(rows, {
+    existingRecipes,
+    doneSources,
+    flush,
+  });
 
   console.log(`\n📝 Writing ${recipes.length} recipes to ${JSON_OUT_PATH}...`);
   writeFileSync(JSON_OUT_PATH, JSON.stringify(recipes, null, 2), 'utf-8');

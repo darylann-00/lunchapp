@@ -33,3 +33,4 @@ playwright/.cache
 # Generated recipe seed artifacts
 scripts/seed/recipes_seed.json
 scripts/seed/recipes_seed.failures.json
+scripts/seed/.momables_cache/

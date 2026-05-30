@@ -51,7 +51,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan as a 3-column grid (Day / Main Lunch / Snacks). Everything is visible at once: sides render stacked under each main, snacks each in their own box, no truncation or "see more". Draft plans show a "Review Plan" banner; finalized plans show an edit pencil to re-enter the review pane. Tapping the day pill opens PrepModal. Fully-prepped dishes get a strikethrough + DONE stamp. Empty state prompts the wizard.
 
-- **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish shows its ingredients (quantity + unit + name) followed by its `prepNotes` split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`).
+- **PrepModal** (`src/components/PrepModal.tsx`) — single merged checklist for a day: each dish shows its ingredients (quantity + unit + name) followed by its `prepNotes` split into checkable steps (`src/lib/prepSteps.ts`), and a component (main/side/snack) gets a DONE stamp once all its steps are checked. Progress persists per week in `weekly_plans.prep_progress` (`Record<dishId, number[]>`). Catalog-sourced dishes show a "via [Source]" attribution link under the dish name.
 
 - **GroceryTab** (`src/components/GroceryTab.tsx`) — generates and displays the deduped grocery list for the current week's plan, grouped by category.
 
@@ -93,7 +93,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 | `recipe_tag_assignments` | `recipe_id`, `tag_id` (composite PK, many-to-many join) |
 | `recipe_feedback` | `user_id`, `recipe_id` (composite PK), `reaction` (`'like' \| 'dislike' \| 'favorite'`) |
 
-Migrations live in `supabase/migrations/`. The recipe catalog is seeded from `scripts/seed/lunchbox_snack_recipes_ALL.csv` via `scripts/import_recipes.ts` (a one-time Claude-powered cleaner). Run `npm run import-recipes` to generate `scripts/seed/recipes_seed.json` for review, then `npm run import-recipes:apply` to write to Supabase (requires `SUPABASE_SERVICE_ROLE_KEY`).
+Migrations live in `supabase/migrations/`. The recipe catalog is seeded from two sources: `scripts/seed/lunchbox_snack_recipes_ALL.csv` (Yummy Toddler Food, Weelicious) and `scripts/seed/momables_recipes.csv` (MOMables, scraped via `scripts/scrape_momables.ts`). Both are cleaned/tagged by `scripts/import_recipes.ts` (Claude-powered, resumable — writes incrementally and skips already-cleaned rows on restart). Run `npm run import-recipes` or `npm run import-recipes:momables` to clean, review `scripts/seed/recipes_seed.json`, then `npm run import-recipes:apply` (requires `SUPABASE_SERVICE_ROLE_KEY`). The `import_recipes.ts` script accepts `--csv=<path>` to point at any source CSV.
 
 ---
 
