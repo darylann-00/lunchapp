@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "import-recipes": "tsx --env-file=.env scripts/import_recipes.ts",
-    "import-recipes:apply": "tsx --env-file=.env scripts/import_recipes.ts --apply"
+    "import-recipes:apply": "tsx --env-file=.env scripts/import_recipes.ts --apply",
+    "scrape-momables": "tsx scripts/scrape_momables.ts",
+    "import-recipes:momables": "tsx --env-file=.env scripts/import_recipes.ts --csv=scripts/seed/momables_recipes.csv"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",

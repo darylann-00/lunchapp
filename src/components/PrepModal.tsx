@@ -105,6 +105,24 @@ export default function PrepModal({ item, prepProgress, onToggleStep, onClose }:
                         {dish.name}
                       </p>
                       <p className="text-xs text-luncharoo-dark/50 font-medium">{categoryLabel(category)}</p>
+                      {dish.sourceAttribution && (
+                        <p className="text-[11px] text-luncharoo-dark/40 font-medium">
+                          via{' '}
+                          {dish.sourceUrl ? (
+                            <a
+                              href={dish.sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline hover:text-luncharoo-blue"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {dish.sourceAttribution}
+                            </a>
+                          ) : (
+                            dish.sourceAttribution
+                          )}
+                        </p>
+                      )}
                     </div>
                     {isPrepped && <DoneStamp className="w-9 h-9" />}
                   </div>

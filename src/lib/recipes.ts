@@ -332,6 +332,8 @@ export function recipeToDish(recipe: RecipeWithTags): Dish {
     ingredients: recipe.ingredients,
     isPackaged: recipe.isPackaged,
     prepTimeMinutes: recipe.prepTimeMinutes,
+    sourceUrl: recipe.sourceUrl,
+    sourceAttribution: recipe.sourceAttribution,
   };
 }
 
