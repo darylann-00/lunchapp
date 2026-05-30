@@ -25,7 +25,7 @@ A single-kid weekly lunch planner for parents. The parent signs in, sets up a ki
 | Auth | Supabase — Google OAuth (primary) + magic link (fallback) |
 | State | AppContext → Supabase (server), no localStorage |
 | Database | Supabase — `profiles` table (kid + parent_prefs as JSONB), `weekly_plans` table |
-| AI | Claude `claude-sonnet-4-6` via Vercel Function proxy at `/api/anthropic` |
+| AI | Claude `claude-sonnet-4-6` — plan generation via `/api/generate-plan` (server-side orchestration); single-dish ops via `/api/anthropic` proxy |
 | Voice | `/api/transcribe` — MediaRecorder blob → Claude transcription |
 | Deployment | Vercel |
 | Tests | Vitest + jsdom (unit), Playwright (e2e) |
@@ -59,7 +59,9 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **AI layer** (`src/lib/ai.ts` → `src/lib/planEngine.ts` + `src/lib/recipes.ts`) — `generateWeeklyPlan` delegates to `orchestrateWeeklyPlan` in `planEngine.ts`, a pure module with no browser dependencies. The engine accepts injected `CallModel` (transport) and `SupabaseClient` (DB) so the same 3-stage flow runs in the browser (via `/api/anthropic` proxy) and on the server (direct Anthropic SDK). Stage 1 pulls a candidate pool from the `recipes` catalog (allergens/dietary/dislikes filtered; favorites + on-hand ingredients boosted); Stage 2 asks Sonnet to pick a main + 2 sides + N snacks per day from that pool, reusing a small rotating set of sides/snacks across days (sized to the kid's `repetitionPreference`) so each grocery package gets used up instead of buying a new item daily; Stage 3 invents and saves any gap recipes via `generateRecipeForGap` + `saveAIRecipe`. `recipes.ts` functions (`getCandidateRecipes`, `saveAIRecipe`) accept a `db: SupabaseClient` parameter instead of importing the browser singleton. Sides (fruit, veggies, crackers, cheese) are displayed stacked under the main in the Lunch column and editable via the 🥕 Sides tab in EditDayModal. `parseWeeklyNotes`, `generateGroceryList`, `regenerateDish` remain in `ai.ts` (browser-only, catalog-unaware). All POST to `/api/anthropic` which requires a valid Supabase auth token.
 
-- **API auth** (`api/_auth.ts`) — `requireAuth` helper validates the Supabase JWT on every `/api/anthropic` and `/api/transcribe` request.
+- **Server-side plan generation** (`api/generate-plan.ts`) — single POST endpoint that runs the full 3-stage orchestration server-side (direct Anthropic calls, no proxy hops). Creates a user-scoped Supabase client from the JWT for RLS. Rate-limited to 3/min per user. `AppContext.startBackgroundPlanGeneration` calls this instead of the browser-side `ai.generateWeeklyPlan`.
+
+- **API auth** (`api/_auth.ts`) — `requireAuth` helper validates the Supabase JWT on every `/api/anthropic`, `/api/generate-plan`, and `/api/transcribe` request.
 
 ---
 
@@ -73,7 +75,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 /  BentoShell
    ├── Lunch Plan tab
    │    ├── WizardOverlay (notes → background generate → draft)
-   │    │    └── generateWeeklyPlan → LunchItem[] (saved as draft)
+   │    │    └── POST /api/generate-plan → LunchItem[] (saved as draft)
    │    └── PlanReviewPane (review/edit → finalize or save changes)
    │         └── RecipePicker + AI regenerateDish
    ├── Grocery tab → generateGroceryList → GroceryItem[]

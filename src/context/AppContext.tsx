@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem, ParsedSession } from '../types';
 import { supabase } from '../lib/supabase';
-import * as ai from '../lib/ai';
+import { getAuthHeader } from '../lib/ai';
 
 type AppContextValue = {
   kids: Kid[];
@@ -256,15 +256,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       try {
-        const parsedSession = await ai.parseWeeklyNotes(
-          session.specialNotes,
-          session.daysNeeded,
-          kid,
-          prefs
-        );
-        const result = await ai.generateWeeklyPlan(parsedSession, kid, prefs);
+        // Single POST to the server — the endpoint runs the full 3-stage
+        // orchestration (candidate retrieval → AI selection → gap filling)
+        // server-side instead of ~5-15 sequential browser→proxy round-trips.
+        const authHeader = await getAuthHeader();
+        const res = await fetch('/api/generate-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+          body: JSON.stringify({ session, kid, parentPrefs: prefs }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+          throw new Error((data as { error?: string }).error ?? `Server error ${res.status}`);
+        }
+
+        const result = (await res.json()) as { days: string[]; items: LunchItem[] };
         const itemsWithKid = result.items.map((item) => ({ ...item, kidId: kid.id }));
-        await savePlan(weekStartDate, parsedSession.daysNeeded, parsedSession.specialNotes, itemsWithKid);
+        await savePlan(weekStartDate, result.days, session.specialNotes, itemsWithKid);
         setBackgroundGen({ active: false, weekStartDate: null, error: null });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Generation failed';
