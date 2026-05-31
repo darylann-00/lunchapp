@@ -168,7 +168,7 @@ function BentoShell() {
         {/* Tab content — Recipes tab manages its own scroll; others share the padded container */}
         {activeTab === 'recipes' ? (
           <div className="flex-1 min-h-0 z-10">
-            <RecipeBrowsePane />
+            <RecipeBrowsePane weekStart={weekStart} onAddedToPlan={showToast} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-20 z-10">
