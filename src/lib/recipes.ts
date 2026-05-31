@@ -363,3 +363,57 @@ export async function getRecipesForPicker(
       return true;
     });
 }
+
+export type RecipeWithFeedback = RecipeWithTags & { reaction: RecipeReaction | null };
+
+// Fetch all recipes with the current user's feedback for the browse/library view.
+// RLS on recipe_feedback scopes feedback rows to the signed-in user automatically.
+export async function getRecipesForBrowse(db: SupabaseClient): Promise<RecipeWithFeedback[]> {
+  const [recipesRes, feedbackRes] = await Promise.all([
+    db
+      .from('recipes')
+      .select(
+        'id, name, description, prep_notes, ingredients, meal_type, is_packaged, source, source_url, source_attribution, prep_time_minutes, created_by, recipe_tag_assignments(recipe_tags(name))'
+      )
+      .order('name'),
+    db.from('recipe_feedback').select('recipe_id, reaction'),
+  ]);
+
+  if (recipesRes.error) throw new Error(`Failed to load recipes: ${recipesRes.error.message}`);
+  if (feedbackRes.error) throw new Error(`Failed to load feedback: ${feedbackRes.error.message}`);
+
+  const feedbackMap = new Map<string, RecipeReaction>();
+  for (const f of feedbackRes.data ?? []) {
+    feedbackMap.set(f.recipe_id as string, f.reaction as RecipeReaction);
+  }
+
+  const rows = (recipesRes.data ?? []) as unknown as RecipeRow[];
+  return rows.map((row) => ({
+    ...rowToRecipe(row),
+    reaction: feedbackMap.get(row.id) ?? null,
+  }));
+}
+
+// Upsert or clear a recipe feedback reaction.
+// If `newReaction` matches the current stored reaction, it is toggled off (deleted).
+// Returns the resulting reaction (null = cleared).
+export async function upsertRecipeFeedback(
+  db: SupabaseClient,
+  userId: string,
+  recipeId: string,
+  currentReaction: RecipeReaction | null,
+  newReaction: RecipeReaction
+): Promise<RecipeReaction | null> {
+  if (currentReaction === newReaction) {
+    await db.from('recipe_feedback').delete().eq('recipe_id', recipeId);
+    return null;
+  }
+  const { error } = await db
+    .from('recipe_feedback')
+    .upsert(
+      { user_id: userId, recipe_id: recipeId, reaction: newReaction },
+      { onConflict: 'user_id,recipe_id' }
+    );
+  if (error) throw new Error(`Failed to save feedback: ${error.message}`);
+  return newReaction;
+}
