@@ -6,6 +6,7 @@ import { useKid } from '../hooks/useKid';
 import { supabase } from '../lib/supabase';
 import { getRecipesForBrowse, upsertRecipeFeedback, recipeToDish, type RecipeWithFeedback } from '../lib/recipes';
 import { dishSteps } from '../lib/prepSteps';
+import { formatWeekRange, weekRelativeLabel, getDayDate } from '../lib/dateUtils';
 
 const MEAL_TYPE_STYLES: Record<RecipeMealType, string> = {
   main: 'bg-luncharoo-coral/20 text-luncharoo-coral',
@@ -27,14 +28,16 @@ const DAY_COLORS: Record<string, string> = {
 
 type DetailModalProps = {
   recipe: RecipeWithFeedback;
+  weekStart: string;
   onClose: () => void;
   onToggleFeedback: (recipeId: string, current: RecipeReaction | null, next: RecipeReaction) => void;
-  onAddToDay: (recipe: RecipeWithFeedback, day: string) => void;
+  onAddToDay: (recipe: RecipeWithFeedback, day: string) => Promise<void>;
 };
 
-function RecipeDetailModal({ recipe: r, onClose, onToggleFeedback, onAddToDay }: DetailModalProps) {
+function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, onAddToDay }: DetailModalProps) {
   const steps = dishSteps(r.name, r.prepNotes);
   const [showDayPicker, setShowDayPicker] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   return (
     <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center p-2 sm:p-4">
@@ -142,21 +145,28 @@ function RecipeDetailModal({ recipe: r, onClose, onToggleFeedback, onAddToDay }:
           {showDayPicker ? (
             <div className="space-y-2">
               <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider text-center">
-                Add to which day?
+                {weekRelativeLabel(weekStart)} · {formatWeekRange(weekStart)}
               </p>
               <div className="flex gap-1.5 justify-center">
-                {WEEKDAYS.map((day) => (
-                  <button
-                    key={day}
-                    onClick={() => {
-                      onAddToDay(r, day);
-                      onClose();
-                    }}
-                    className={`px-2.5 py-1.5 rounded-lg luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-xs luncharoo-press ${DAY_COLORS[day]}`}
-                  >
-                    {day.slice(0, 3)}
-                  </button>
-                ))}
+                {WEEKDAYS.map((day) => {
+                  const dateStr = getDayDate(weekStart, day);
+                  const dateNum = new Date(dateStr + 'T12:00:00').getDate();
+                  return (
+                    <button
+                      key={day}
+                      disabled={adding}
+                      onClick={async () => {
+                        setAdding(true);
+                        await onAddToDay(r, day);
+                        onClose();
+                      }}
+                      className={`flex flex-col items-center px-2 py-1.5 rounded-lg luncharoo-border luncharoo-shadow-sm font-fredoka font-bold luncharoo-press disabled:opacity-50 ${DAY_COLORS[day]}`}
+                    >
+                      <span className="text-xs leading-none">{day.slice(0, 3)}</span>
+                      <span className="text-[10px] leading-none opacity-80">{dateNum}</span>
+                    </button>
+                  );
+                })}
               </div>
               <button
                 onClick={() => setShowDayPicker(false)}
@@ -279,44 +289,46 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
     const slot: 'lunches' | 'sides' | 'snacks' =
       recipe.mealType === 'main' ? 'lunches' : recipe.mealType === 'side' ? 'sides' : 'snacks';
 
-    const existingPlan = plans.find((p) => p.weekStartDate === weekStart);
+    try {
+      const existingPlan = plans.find((p) => p.weekStartDate === weekStart);
 
-    if (existingPlan) {
-      const existingItem = existingPlan.items.find((it) => it.day === day);
-      let updatedItems: LunchItem[];
+      if (existingPlan) {
+        const existingItem = existingPlan.items.find((it) => it.day === day);
+        let updatedItems: LunchItem[];
 
-      if (existingItem) {
-        updatedItems = existingPlan.items.map((it) =>
-          it.day === day ? { ...it, [slot]: [...it[slot], dish] } : it
-        );
+        if (existingItem) {
+          updatedItems = existingPlan.items.map((it) =>
+            it.day === day ? { ...it, [slot]: [...it[slot], dish] } : it
+          );
+        } else {
+          const newItem: LunchItem = {
+            id: uuidv4(),
+            kidId: kid.id,
+            day,
+            lunches: slot === 'lunches' ? [dish] : [],
+            sides: slot === 'sides' ? [dish] : [],
+            snacks: slot === 'snacks' ? [dish] : [],
+          };
+          updatedItems = [...existingPlan.items, newItem];
+        }
+
+        await updatePlanItems(existingPlan.id, updatedItems);
       } else {
         const newItem: LunchItem = {
           id: uuidv4(),
           kidId: kid.id,
           day,
-          lunches: [],
-          sides: [],
-          snacks: [],
-          [slot]: [dish],
+          lunches: slot === 'lunches' ? [dish] : [],
+          sides: slot === 'sides' ? [dish] : [],
+          snacks: slot === 'snacks' ? [dish] : [],
         };
-        updatedItems = [...existingPlan.items, newItem];
+        await savePlan(weekStart, [day], '', [newItem]);
       }
 
-      await updatePlanItems(existingPlan.id, updatedItems);
-    } else {
-      const newItem: LunchItem = {
-        id: uuidv4(),
-        kidId: kid.id,
-        day,
-        lunches: [],
-        sides: [],
-        snacks: [],
-        [slot]: [dish],
-      };
-      await savePlan(weekStart, [day], '', [newItem]);
+      onAddedToPlan(`Added ${dish.name} to ${day}`);
+    } catch (err) {
+      onAddedToPlan(`⚠️ Failed to add: ${err instanceof Error ? err.message : 'unknown error'}`);
     }
-
-    onAddedToPlan(`Added ${dish.name} to ${day}`);
   }, [kid, plans, weekStart, updatePlanItems, savePlan, onAddedToPlan]);
 
   if (loading) {
@@ -456,6 +468,7 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
       {selectedRecipe && (
         <RecipeDetailModal
           recipe={selectedRecipe}
+          weekStart={weekStart}
           onClose={() => setSelectedRecipe(null)}
           onToggleFeedback={handleToggleFeedback}
           onAddToDay={handleAddToDay}
