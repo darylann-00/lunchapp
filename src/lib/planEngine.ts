@@ -13,7 +13,7 @@ import {
   recipeToDish,
   autoTagRecipe,
   type RecipeWithTags,
-} from './recipes';
+} from './recipes.js';
 
 // ── Shared types ────────────────────────────────────────────────────────────
 
