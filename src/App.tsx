@@ -16,11 +16,16 @@ import RecipeBrowsePane from './components/RecipeBrowsePane';
 import { getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
 import { toggleStep } from './lib/prepSteps';
 import type { LunchItem } from './types';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBoxArchive, faClipboardList, faUserNinja, faUtensils, type IconDefinition } from '@fortawesome/free-solid-svg-icons';
 import './index.css';
 
 type Tab = 'lunch' | 'grocery' | 'recipes' | 'profile';
+
+const TAB_ICONS: Record<Tab, string> = {
+  lunch: '🍱',
+  grocery: '📋',
+  recipes: '🍴',
+  profile: '🥷',
+};
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -73,11 +78,11 @@ function BentoShell() {
     prevActive.current = backgroundGen.active;
   }, [backgroundGen.active, backgroundGen.error, clearBackgroundGenError]);
 
-  const TAB_BTNS: { id: Tab; icon: IconDefinition; label: string }[] = [
-    { id: 'lunch', icon: faBoxArchive, label: 'Lunch Plan' },
-    { id: 'grocery', icon: faClipboardList, label: 'Grocery' },
-    { id: 'recipes', icon: faUtensils, label: 'Recipes' },
-    { id: 'profile', icon: faUserNinja, label: 'Profile' },
+  const TAB_BTNS: { id: Tab; label: string }[] = [
+    { id: 'lunch', label: 'Lunch Plan' },
+    { id: 'grocery', label: 'Grocery' },
+    { id: 'recipes', label: 'Recipes' },
+    { id: 'profile', label: 'Profile' },
   ];
 
   return (
@@ -191,7 +196,7 @@ function BentoShell() {
 
         {/* Bottom nav */}
         <nav className="bg-white luncharoo-border-t h-16 flex items-center justify-around px-4 relative z-20 select-none">
-          {TAB_BTNS.map(({ id, icon, label }) => (
+          {TAB_BTNS.map(({ id, label }) => (
             <button
               key={id}
               data-testid={`tab-${id}`}
@@ -202,7 +207,7 @@ function BentoShell() {
                   : 'text-slate-400'
               }`}
             >
-              <FontAwesomeIcon icon={icon} className="text-lg" />
+              <span className="text-lg leading-none">{TAB_ICONS[id]}</span>
               <span className="text-xs font-fredoka font-bold tracking-wide">{label}</span>
             </button>
           ))}

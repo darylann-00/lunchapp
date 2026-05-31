@@ -41,7 +41,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **Onboarding** (`src/pages/Onboarding.tsx`) — multi-step form collecting kid profile (name, age, allergies, dislikes, likes, repetition preference, snack config, dietary flags, school rules) and parent prefs. Protected by `RequireAuth`. Redirected to from `RequireKid` guard when no kid exists.
 
-- **BentoShell** (`src/App.tsx`) — four-tab shell (Lunch Plan / Grocery / Recipes / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). FontAwesome icons in the bottom nav; no FABs. The Recipes tab renders `RecipeBrowsePane` in its own full-height container (not the shared padded scroll div) so its filter bar stays fixed and only its recipe list scrolls.
+- **BentoShell** (`src/App.tsx`) — four-tab shell (Lunch Plan / Grocery / Recipes / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). Emoji icons (🍱 📋 🍴 🥷) in the bottom nav; no FABs. The Recipes tab renders `RecipeBrowsePane` in its own full-height container (not the shared padded scroll div) so its filter bar stays fixed and only its recipe list scrolls.
 
 - **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen overlay. Day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Plan generates in the background and saves as `'draft'`; on completion the PlanReviewPane auto-opens. `ParsedSession` is built client-side directly from wizard state; `parseWeeklyNotes` is intentionally skipped here.
 
