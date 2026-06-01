@@ -6,7 +6,7 @@ import { useKid } from '../hooks/useKid';
 import { supabase } from '../lib/supabase';
 import { getRecipesForBrowse, upsertRecipeFeedback, recipeToDish, type RecipeWithFeedback } from '../lib/recipes';
 import { dishSteps } from '../lib/prepSteps';
-import { formatWeekRange, weekRelativeLabel, getDayDate } from '../lib/dateUtils';
+import { formatWeekRange, weekRelativeLabel, getDayDate, addWeeks } from '../lib/dateUtils';
 
 const MEAL_TYPE_STYLES: Record<RecipeMealType, string> = {
   main: 'bg-luncharoo-coral/20 text-luncharoo-coral',
@@ -31,13 +31,14 @@ type DetailModalProps = {
   weekStart: string;
   onClose: () => void;
   onToggleFeedback: (recipeId: string, current: RecipeReaction | null, next: RecipeReaction) => void;
-  onAddToDay: (recipe: RecipeWithFeedback, day: string) => Promise<void>;
+  onAddToDay: (recipe: RecipeWithFeedback, day: string, targetWeek: string) => Promise<void>;
 };
 
 function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, onAddToDay }: DetailModalProps) {
   const steps = dishSteps(r.name, r.prepNotes);
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [pickerWeek, setPickerWeek] = useState(weekStart);
 
   return (
     <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center p-2 sm:p-4">
@@ -144,12 +145,31 @@ function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, on
         <div className="px-4 pb-4 pt-3 space-y-2">
           {showDayPicker ? (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider text-center">
-                {weekRelativeLabel(weekStart)} · {formatWeekRange(weekStart)}
-              </p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setPickerWeek((w) => addWeeks(w, -1))}
+                  className="w-6 h-6 bg-luncharoo-beige rounded-lg luncharoo-border flex items-center justify-center font-bold text-luncharoo-dark/70 luncharoo-press text-xs"
+                >
+                  ‹
+                </button>
+                <div className="text-center min-w-[130px]">
+                  <p className="text-[10px] font-fredoka font-bold text-luncharoo-coral uppercase tracking-wider leading-none">
+                    {weekRelativeLabel(pickerWeek)}
+                  </p>
+                  <p className="text-[10px] font-semibold text-luncharoo-dark/60">
+                    {formatWeekRange(pickerWeek)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPickerWeek((w) => addWeeks(w, 1))}
+                  className="w-6 h-6 bg-luncharoo-beige rounded-lg luncharoo-border flex items-center justify-center font-bold text-luncharoo-dark/70 luncharoo-press text-xs"
+                >
+                  ›
+                </button>
+              </div>
               <div className="flex gap-1.5 justify-center">
                 {WEEKDAYS.map((day) => {
-                  const dateStr = getDayDate(weekStart, day);
+                  const dateStr = getDayDate(pickerWeek, day);
                   const dateNum = new Date(dateStr + 'T12:00:00').getDate();
                   return (
                     <button
@@ -157,7 +177,7 @@ function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, on
                       disabled={adding}
                       onClick={async () => {
                         setAdding(true);
-                        await onAddToDay(r, day);
+                        await onAddToDay(r, day, pickerWeek);
                         onClose();
                       }}
                       className={`flex flex-col items-center px-2 py-1.5 rounded-lg luncharoo-border luncharoo-shadow-sm font-fredoka font-bold luncharoo-press disabled:opacity-50 ${DAY_COLORS[day]}`}
@@ -283,14 +303,14 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
     }
   };
 
-  const handleAddToDay = useCallback(async (recipe: RecipeWithFeedback, day: string) => {
+  const handleAddToDay = useCallback(async (recipe: RecipeWithFeedback, day: string, targetWeek: string) => {
     if (!kid) return;
     const dish = recipeToDish(recipe);
     const slot: 'lunches' | 'sides' | 'snacks' =
       recipe.mealType === 'main' ? 'lunches' : recipe.mealType === 'side' ? 'sides' : 'snacks';
 
     try {
-      const existingPlan = plans.find((p) => p.weekStartDate === weekStart);
+      const existingPlan = plans.find((p) => p.weekStartDate === targetWeek);
 
       if (existingPlan) {
         const existingItem = existingPlan.items.find((it) => it.day === day);
@@ -298,7 +318,14 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
 
         if (existingItem) {
           updatedItems = existingPlan.items.map((it) =>
-            it.day === day ? { ...it, [slot]: [...it[slot], dish] } : it
+            it.day === day
+              ? {
+                  ...it,
+                  lunches: slot === 'lunches' ? [...it.lunches, dish] : it.lunches,
+                  sides: slot === 'sides' ? [...it.sides, dish] : it.sides,
+                  snacks: slot === 'snacks' ? [...it.snacks, dish] : it.snacks,
+                }
+              : it
           );
         } else {
           const newItem: LunchItem = {
@@ -322,14 +349,15 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
           sides: slot === 'sides' ? [dish] : [],
           snacks: slot === 'snacks' ? [dish] : [],
         };
-        await savePlan(weekStart, [day], '', [newItem]);
+        await savePlan(targetWeek, [day], '', [newItem]);
       }
 
-      onAddedToPlan(`Added ${dish.name} to ${day}`);
+      const weekLabel = weekRelativeLabel(targetWeek).toLowerCase();
+      onAddedToPlan(`Added ${dish.name} to ${day} (${weekLabel})`);
     } catch (err) {
       onAddedToPlan(`⚠️ Failed to add: ${err instanceof Error ? err.message : 'unknown error'}`);
     }
-  }, [kid, plans, weekStart, updatePlanItems, savePlan, onAddedToPlan]);
+  }, [kid, plans, updatePlanItems, savePlan, onAddedToPlan]);
 
   if (loading) {
     return (

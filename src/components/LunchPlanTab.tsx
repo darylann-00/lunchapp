@@ -111,7 +111,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDa
 
                   {/* Main lunch cell */}
                   <td className="p-3 border-r-[2.5px] border-luncharoo-dark/20 align-top">
-                    {item && item.lunches.length > 0 ? (
+                    {item && (item.lunches.length > 0 || (item.sides ?? []).length > 0) ? (
                       <div className="space-y-0.5">
                         {item.lunches.map((lunch) => {
                           const done = isDishPrepped(lunch.id, lunch.name, lunch.prepNotes, plan.prepProgress);
@@ -131,7 +131,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDa
                           );
                         })}
                         {(item.sides ?? []).length > 0 && (
-                          <div className="border-t border-dashed border-luncharoo-dark/15 pt-1.5 mt-1.5 space-y-0.5">
+                          <div className={item.lunches.length > 0 ? 'border-t border-dashed border-luncharoo-dark/15 pt-1.5 mt-1.5 space-y-0.5' : 'space-y-0.5'}>
                             {item.sides.map((side) => {
                               const done = isDishPrepped(side.id, side.name, side.prepNotes, plan.prepProgress);
                               return (
