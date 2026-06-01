@@ -13,7 +13,7 @@ import WizardOverlay from './components/WizardOverlay';
 import PlanReviewPane from './components/PlanReviewPane';
 import PrepModal from './components/PrepModal';
 import RecipeBrowsePane from './components/RecipeBrowsePane';
-import { getMondayISO, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
+import { getDefaultWeekMonday, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
 import { toggleStep } from './lib/prepSteps';
 import type { LunchItem } from './types';
 import './index.css';
@@ -47,7 +47,7 @@ function BentoShell() {
   const { parentPrefs: prefs } = useParentPrefs();
 
   const [activeTab, setActiveTab] = useState<Tab>('lunch');
-  const [weekStart, setWeekStart] = useState(getMondayISO(new Date()));
+  const [weekStart, setWeekStart] = useState(getDefaultWeekMonday());
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [prepItem, setPrepItem] = useState<LunchItem | null>(null);
