@@ -10,14 +10,12 @@ export function getMondayISO(date: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-// Returns next week's Monday on Saturday, otherwise current week's Monday
+// On Saturday or Sunday, default to next week — the current M–F has passed or is about to
 export function getDefaultWeekMonday(): string {
   const today = new Date();
+  const day = today.getDay(); // 0=Sun, 6=Sat
   const monday = getMondayISO(today);
-  if (today.getDay() === 6) {
-    return addWeeks(monday, 1);
-  }
-  return monday;
+  return day === 0 || day === 6 ? addWeeks(monday, 1) : monday;
 }
 
 export function addWeeks(isoDate: string, n: number): string {
