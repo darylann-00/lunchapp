@@ -1,8 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { RecipeMealType, RecipeReaction } from '../types';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { RecipeMealType, RecipeReaction, LunchItem } from '../types';
+import { useApp } from '../context/AppContext';
+import { useKid } from '../hooks/useKid';
 import { supabase } from '../lib/supabase';
-import { getRecipesForBrowse, upsertRecipeFeedback, type RecipeWithFeedback } from '../lib/recipes';
+import { getRecipesForBrowse, upsertRecipeFeedback, recipeToDish, type RecipeWithFeedback } from '../lib/recipes';
 import { dishSteps } from '../lib/prepSteps';
+import { formatWeekRange, weekRelativeLabel, getDayDate, addWeeks } from '../lib/dateUtils';
 
 const MEAL_TYPE_STYLES: Record<RecipeMealType, string> = {
   main: 'bg-luncharoo-coral/20 text-luncharoo-coral',
@@ -10,16 +14,31 @@ const MEAL_TYPE_STYLES: Record<RecipeMealType, string> = {
   side: 'bg-emerald-100 text-emerald-700',
 };
 
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
+
+const DAY_COLORS: Record<string, string> = {
+  Monday: 'bg-luncharoo-coral text-white',
+  Tuesday: 'bg-luncharoo-peach text-white',
+  Wednesday: 'bg-luncharoo-yellow text-luncharoo-dark',
+  Thursday: 'bg-luncharoo-blue text-white',
+  Friday: 'bg-emerald-500 text-white',
+};
+
 // ── Recipe detail modal ────────────────────────────────────────────────────
 
 type DetailModalProps = {
   recipe: RecipeWithFeedback;
+  weekStart: string;
   onClose: () => void;
   onToggleFeedback: (recipeId: string, current: RecipeReaction | null, next: RecipeReaction) => void;
+  onAddToDay: (recipe: RecipeWithFeedback, day: string, targetWeek: string) => Promise<void>;
 };
 
-function RecipeDetailModal({ recipe: r, onClose, onToggleFeedback }: DetailModalProps) {
+function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, onAddToDay }: DetailModalProps) {
   const steps = dishSteps(r.name, r.prepNotes);
+  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [pickerWeek, setPickerWeek] = useState(weekStart);
 
   return (
     <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center p-2 sm:p-4">
@@ -122,24 +141,88 @@ function RecipeDetailModal({ recipe: r, onClose, onToggleFeedback }: DetailModal
           </div>
         </div>
 
-        {/* Footer — feedback actions */}
-        <div className="px-4 pb-4 pt-3 flex gap-2">
-          <button
-            onClick={() => onToggleFeedback(r.id, r.reaction, 'favorite')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
-              r.reaction === 'favorite' ? 'bg-luncharoo-coral text-white' : 'bg-white text-luncharoo-dark/70'
-            }`}
-          >
-            {r.reaction === 'favorite' ? '♥' : '♡'} Favorite
-          </button>
-          <button
-            onClick={() => onToggleFeedback(r.id, r.reaction, 'dislike')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
-              r.reaction === 'dislike' ? 'bg-slate-200 text-slate-600' : 'bg-white text-luncharoo-dark/70'
-            }`}
-          >
-            {r.reaction === 'dislike' ? '⊘ Unhide' : '○ Hide'}
-          </button>
+        {/* Footer — feedback + add to plan */}
+        <div className="px-4 pb-4 pt-3 space-y-2">
+          {showDayPicker ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setPickerWeek((w) => addWeeks(w, -1))}
+                  className="w-6 h-6 bg-luncharoo-beige rounded-lg luncharoo-border flex items-center justify-center font-bold text-luncharoo-dark/70 luncharoo-press text-xs"
+                >
+                  ‹
+                </button>
+                <div className="text-center min-w-[130px]">
+                  <p className="text-[10px] font-fredoka font-bold text-luncharoo-coral uppercase tracking-wider leading-none">
+                    {weekRelativeLabel(pickerWeek)}
+                  </p>
+                  <p className="text-[10px] font-semibold text-luncharoo-dark/60">
+                    {formatWeekRange(pickerWeek)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPickerWeek((w) => addWeeks(w, 1))}
+                  className="w-6 h-6 bg-luncharoo-beige rounded-lg luncharoo-border flex items-center justify-center font-bold text-luncharoo-dark/70 luncharoo-press text-xs"
+                >
+                  ›
+                </button>
+              </div>
+              <div className="flex gap-1.5 justify-center">
+                {WEEKDAYS.map((day) => {
+                  const dateStr = getDayDate(pickerWeek, day);
+                  const dateNum = new Date(dateStr + 'T12:00:00').getDate();
+                  return (
+                    <button
+                      key={day}
+                      disabled={adding}
+                      onClick={async () => {
+                        setAdding(true);
+                        await onAddToDay(r, day, pickerWeek);
+                        onClose();
+                      }}
+                      className={`flex flex-col items-center px-2 py-1.5 rounded-lg luncharoo-border luncharoo-shadow-sm font-fredoka font-bold luncharoo-press disabled:opacity-50 ${DAY_COLORS[day]}`}
+                    >
+                      <span className="text-xs leading-none">{day.slice(0, 3)}</span>
+                      <span className="text-[10px] leading-none opacity-80">{dateNum}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setShowDayPicker(false)}
+                className="w-full text-center text-xs font-fredoka text-luncharoo-dark/50 py-1"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowDayPicker(true)}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press bg-luncharoo-yellow text-luncharoo-dark"
+              >
+                + Add to Plan
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onToggleFeedback(r.id, r.reaction, 'favorite')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
+                    r.reaction === 'favorite' ? 'bg-luncharoo-coral text-white' : 'bg-white text-luncharoo-dark/70'
+                  }`}
+                >
+                  {r.reaction === 'favorite' ? '♥' : '♡'} Favorite
+                </button>
+                <button
+                  onClick={() => onToggleFeedback(r.id, r.reaction, 'dislike')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
+                    r.reaction === 'dislike' ? 'bg-slate-200 text-slate-600' : 'bg-white text-luncharoo-dark/70'
+                  }`}
+                >
+                  {r.reaction === 'dislike' ? '⊘ Unhide' : '○ Hide'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -148,7 +231,12 @@ function RecipeDetailModal({ recipe: r, onClose, onToggleFeedback }: DetailModal
 
 // ── Main pane ─────────────────────────────────────────────────────────────
 
-export default function RecipeBrowsePane() {
+type PaneProps = {
+  weekStart: string;
+  onAddedToPlan: (msg: string) => void;
+};
+
+export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps) {
   const [recipes, setRecipes] = useState<RecipeWithFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +285,9 @@ export default function RecipeBrowsePane() {
       });
   }, [recipes, showHidden, selectedMealType, selectedPrepTime, searchQuery]);
 
+  const { plans, savePlan, updatePlanItems } = useApp();
+  const { kid } = useKid();
+
   const handleToggleFeedback = async (
     recipeId: string,
     currentReaction: RecipeReaction | null,
@@ -211,6 +302,62 @@ export default function RecipeBrowsePane() {
       console.error('Failed to update feedback:', err);
     }
   };
+
+  const handleAddToDay = useCallback(async (recipe: RecipeWithFeedback, day: string, targetWeek: string) => {
+    if (!kid) return;
+    const dish = recipeToDish(recipe);
+    const slot: 'lunches' | 'sides' | 'snacks' =
+      recipe.mealType === 'main' ? 'lunches' : recipe.mealType === 'side' ? 'sides' : 'snacks';
+
+    try {
+      const existingPlan = plans.find((p) => p.weekStartDate === targetWeek);
+
+      if (existingPlan) {
+        const existingItem = existingPlan.items.find((it) => it.day === day);
+        let updatedItems: LunchItem[];
+
+        if (existingItem) {
+          updatedItems = existingPlan.items.map((it) =>
+            it.day === day
+              ? {
+                  ...it,
+                  lunches: slot === 'lunches' ? [...it.lunches, dish] : it.lunches,
+                  sides: slot === 'sides' ? [...it.sides, dish] : it.sides,
+                  snacks: slot === 'snacks' ? [...it.snacks, dish] : it.snacks,
+                }
+              : it
+          );
+        } else {
+          const newItem: LunchItem = {
+            id: uuidv4(),
+            kidId: kid.id,
+            day,
+            lunches: slot === 'lunches' ? [dish] : [],
+            sides: slot === 'sides' ? [dish] : [],
+            snacks: slot === 'snacks' ? [dish] : [],
+          };
+          updatedItems = [...existingPlan.items, newItem];
+        }
+
+        await updatePlanItems(existingPlan.id, updatedItems);
+      } else {
+        const newItem: LunchItem = {
+          id: uuidv4(),
+          kidId: kid.id,
+          day,
+          lunches: slot === 'lunches' ? [dish] : [],
+          sides: slot === 'sides' ? [dish] : [],
+          snacks: slot === 'snacks' ? [dish] : [],
+        };
+        await savePlan(targetWeek, [day], '', [newItem]);
+      }
+
+      const weekLabel = weekRelativeLabel(targetWeek).toLowerCase();
+      onAddedToPlan(`Added ${dish.name} to ${day} (${weekLabel})`);
+    } catch (err) {
+      onAddedToPlan(`⚠️ Failed to add: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
+  }, [kid, plans, updatePlanItems, savePlan, onAddedToPlan]);
 
   if (loading) {
     return (
@@ -349,8 +496,10 @@ export default function RecipeBrowsePane() {
       {selectedRecipe && (
         <RecipeDetailModal
           recipe={selectedRecipe}
+          weekStart={weekStart}
           onClose={() => setSelectedRecipe(null)}
           onToggleFeedback={handleToggleFeedback}
+          onAddToDay={handleAddToDay}
         />
       )}
     </div>
