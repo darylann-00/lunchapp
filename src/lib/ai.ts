@@ -177,5 +177,5 @@ ${JSON.stringify(otherDishesThisWeek, null, 2)}`,
   });
 
   const dish = await callWithRetry<Dish>(buildBody);
-  return { ...dish, id: dish.id || uuidv4() };
+  return { ...dish, id: uuidv4() };
 }
