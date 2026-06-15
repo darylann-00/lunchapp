@@ -1,9 +1,7 @@
-import type { WeeklyPlan, LunchItem } from '../types';
+import type { WeeklyPlan, SlotCategory, DayPlan } from '../types';
+import { SLOT_EMOJI } from '../types';
 import { getTodayDayName, isCurrentWeek } from '../lib/dateUtils';
-import { isDishPrepped } from '../lib/prepSteps';
-import DoneStamp from './DoneStamp';
-
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
+import { useApp } from '../context/AppContext';
 
 const DAY_THEMES: Record<string, { badge: string; rowToday: string }> = {
   Monday:    { badge: 'bg-luncharoo-coral',   rowToday: 'bg-luncharoo-coral/10 border-l-4 border-l-luncharoo-coral' },
@@ -17,11 +15,11 @@ type Props = {
   plan: WeeklyPlan | null;
   weekStartDate: string;
   onEditPlan: () => void;
-  onPrepDay: (item: LunchItem) => void;
   onGenerateClick: () => void;
 };
 
-export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDay, onGenerateClick }: Props) {
+export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenerateClick }: Props) {
+  const { parentPrefs } = useApp();
   const today = getTodayDayName();
   const showTodayHighlight = isCurrentWeek(weekStartDate);
 
@@ -43,10 +41,74 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDa
     );
   }
 
-  const getItem = (day: string): LunchItem | undefined =>
-    plan.items.find((i) => i.day === day);
-
   const isDraft = plan.status === 'draft';
+
+  // Helper to group lunchbox slots by component_id and render them once with combined emojis
+  const renderLunchboxSlots = (dayPlan: DayPlan) => {
+    if (!parentPrefs || parentPrefs.lunchboxSlots.length === 0) {
+      return <span className="text-xs text-slate-300 italic">—</span>;
+    }
+
+    // Map component_id -> list of slot categories that contain it
+    const componentToSlots = new Map<string, SlotCategory[]>();
+    for (const slotCategory of parentPrefs.lunchboxSlots) {
+      const slot = dayPlan.lunchbox[slotCategory];
+      if (slot) {
+        if (!componentToSlots.has(slot.component_id)) {
+          componentToSlots.set(slot.component_id, []);
+        }
+        componentToSlots.get(slot.component_id)!.push(slotCategory);
+      }
+    }
+
+    if (componentToSlots.size === 0) {
+      return <span className="text-xs text-slate-300 italic">—</span>;
+    }
+
+    return (
+      <div className="space-y-1">
+        {Array.from(componentToSlots.entries()).map(([componentId, slotCategories]) => {
+          const slot = dayPlan.lunchbox[slotCategories[0]];
+          if (!slot) return null;
+
+          // Build emoji + label string from slot categories
+          const emojis = slotCategories.map((cat) => SLOT_EMOJI[cat]).join('');
+
+          return (
+            <div key={componentId} className="flex items-start gap-2">
+              <span className="font-fredoka text-sm font-bold text-luncharoo-dark flex-shrink-0">
+                {emojis}
+              </span>
+              <span className="font-fredoka text-sm font-bold text-luncharoo-dark">
+                {slot.name}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSnacks = (dayPlan: DayPlan) => {
+    if (dayPlan.snacks.length === 0) {
+      return <span className="text-xs text-slate-300 italic">—</span>;
+    }
+
+    return (
+      <div className="space-y-1">
+        {dayPlan.snacks.map((snack) => (
+          <div
+            key={snack.component_id}
+            className="bg-luncharoo-beige/50 rounded-lg p-2 border border-luncharoo-dark/20"
+          >
+            <span className="font-fredoka text-sm font-semibold text-luncharoo-dark block">
+              🍎 {snack.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -85,8 +147,8 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDa
             </tr>
           </thead>
           <tbody>
-            {DAYS.map((day) => {
-              const item = getItem(day);
+            {plan.days.map((day) => {
+              const dayPlan = plan.items[day];
               const theme = DAY_THEMES[day];
               const isToday = showTodayHighlight && day === today;
               const rowClass = isToday ? theme.rowToday : 'hover:bg-slate-50/50';
@@ -99,11 +161,8 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDa
                   {/* Day badge */}
                   <td className="p-2 border-r-[2.5px] border-luncharoo-dark/20 text-center align-top select-none">
                     <button
-                      onClick={() => item && onPrepDay(item)}
-                      disabled={!item}
-                      className={`${theme.badge} text-white font-fredoka font-bold text-xs px-2 py-1 rounded-xl border-2 border-luncharoo-dark block luncharoo-shadow-sm -rotate-2 mx-auto ${
-                        item ? 'cursor-pointer hover:scale-105 transition-transform' : 'cursor-default'
-                      }`}
+                      disabled
+                      className={`${theme.badge} text-white font-fredoka font-bold text-xs px-2 py-1 rounded-xl border-2 border-luncharoo-dark block luncharoo-shadow-sm -rotate-2 mx-auto cursor-default`}
                     >
                       {day.slice(0, 3).toUpperCase()}
                     </button>
@@ -111,80 +170,12 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onPrepDa
 
                   {/* Main lunch cell */}
                   <td className="p-3 border-r-[2.5px] border-luncharoo-dark/20 align-top">
-                    {item && (item.lunches.length > 0 || (item.sides ?? []).length > 0) ? (
-                      <div className="space-y-0.5">
-                        {item.lunches.map((lunch) => {
-                          const done = isDishPrepped(lunch.id, lunch.name, lunch.prepNotes, plan.prepProgress);
-                          return (
-                            <div key={lunch.id} className="relative">
-                              <span
-                                className={`font-fredoka text-sm sm:text-[15px] font-bold text-luncharoo-dark block ${
-                                  done ? 'line-through decoration-luncharoo-dark/40 opacity-65' : ''
-                                }`}
-                              >
-                                {lunch.name}
-                              </span>
-                              {done && (
-                                <DoneStamp className="w-9 h-9 absolute -top-3 -right-2 rotate-12 pointer-events-none drop-shadow" />
-                              )}
-                            </div>
-                          );
-                        })}
-                        {(item.sides ?? []).length > 0 && (
-                          <div className={item.lunches.length > 0 ? 'border-t border-dashed border-luncharoo-dark/15 pt-1.5 mt-1.5 space-y-0.5' : 'space-y-0.5'}>
-                            {item.sides.map((side) => {
-                              const done = isDishPrepped(side.id, side.name, side.prepNotes, plan.prepProgress);
-                              return (
-                                <div key={side.id} className="relative">
-                                  <span
-                                    className={`text-xs sm:text-[12.5px] text-luncharoo-dark/60 font-semibold block ${
-                                      done ? 'line-through decoration-luncharoo-dark/40 opacity-65' : ''
-                                    }`}
-                                  >
-                                    🥕 {side.name}
-                                  </span>
-                                  {done && (
-                                    <DoneStamp className="w-7 h-7 absolute -top-2 -right-1 rotate-12 pointer-events-none drop-shadow" />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-300 italic">—</span>
-                    )}
+                    {dayPlan ? renderLunchboxSlots(dayPlan) : <span className="text-xs text-slate-300 italic">—</span>}
                   </td>
 
                   {/* Snacks cell */}
                   <td className="p-3 align-top">
-                    {item && item.snacks.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {item.snacks.map((snack) => {
-                          const done = isDishPrepped(snack.id, snack.name, snack.prepNotes, plan.prepProgress);
-                          return (
-                            <div
-                              key={snack.id}
-                              className="bg-luncharoo-beige/50 rounded-lg p-2 border border-luncharoo-dark/20 relative"
-                            >
-                              <span
-                                className={`font-fredoka text-sm font-semibold text-luncharoo-dark block ${
-                                  done ? 'line-through decoration-luncharoo-dark/40 opacity-65' : ''
-                                }`}
-                              >
-                                {snack.name}
-                              </span>
-                              {done && (
-                                <DoneStamp className="w-7 h-7 absolute -top-2 -right-1 rotate-12 pointer-events-none drop-shadow" />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-300 italic">—</span>
-                    )}
+                    {dayPlan ? renderSnacks(dayPlan) : <span className="text-xs text-slate-300 italic">—</span>}
                   </td>
                 </tr>
               );

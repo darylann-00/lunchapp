@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Kid, ParentPrefs, WeeklyPlan, ParsedSession, LunchItem, Dish } from '../types';
+import type { Kid, ParentPrefs, WeeklyPlan, ParsedSession, SlotCategory, Ingredient, ComponentTags } from '../types';
 import * as ai from '../lib/ai';
 
 type AIState = {
@@ -28,6 +28,16 @@ function useAICall<TArgs extends unknown[], TResult>(
   return { ...state, call };
 }
 
+type RegenerateResult = {
+  name: string;
+  category: SlotCategory;
+  ingredients: Ingredient[];
+  alsoFills?: SlotCategory[];
+  canBeSnack: boolean;
+  note?: string;
+  tags: ComponentTags;
+};
+
 export function useAI() {
   const parseNotes = useAICall(
     (notes: string, days: string[], kid: Kid, prefs: ParentPrefs) =>
@@ -40,44 +50,34 @@ export function useAI() {
   );
 
   const generateGrocery = useAICall(
-    (plans: WeeklyPlan[], kid: Kid, prefs: ParentPrefs) =>
-      ai.generateGroceryList(plans, kid, prefs)
+    (plan: WeeklyPlan) => ai.aggregateGroceryList(plan)
   );
 
-  const regenerateDish = useAICall(
-    (args: {
-      kid: Kid;
-      parentPrefs: ParentPrefs;
-      sessionNotes: string;
-      day: string;
-      mealType: 'lunch' | 'snack' | 'side';
-      currentDish: Dish;
-      userNote: string;
-      otherDishesThisWeek: Dish[];
-    }) => ai.regenerateDish(args)
+  const regenerateSlot = useAICall(
+    (args: Parameters<typeof ai.regenerateSlot>[0]) => ai.regenerateSlot(args)
   );
 
-  return { parseNotes, generatePlan, generateGrocery, regenerateDish };
+  return { parseNotes, generatePlan, generateGrocery, regenerateSlot };
 }
 
-export function useItemRegenerate(_planItems: LunchItem[]) {
+export function useSlotRegenerate() {
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
 
   const regenerate = async (
-    dishId: string,
-    args: Parameters<typeof ai.regenerateDish>[0]
-  ): Promise<Dish | null> => {
-    setLoadingIds((prev) => ({ ...prev, [dishId]: true }));
-    setErrorIds((prev) => { const n = { ...prev }; delete n[dishId]; return n; });
+    slotKey: string,
+    args: Parameters<typeof ai.regenerateSlot>[0]
+  ): Promise<RegenerateResult | null> => {
+    setLoadingIds((prev) => ({ ...prev, [slotKey]: true }));
+    setErrorIds((prev) => { const n = { ...prev }; delete n[slotKey]; return n; });
     try {
-      const result = await ai.regenerateDish(args);
-      setLoadingIds((prev) => ({ ...prev, [dishId]: false }));
+      const result = await ai.regenerateSlot(args);
+      setLoadingIds((prev) => ({ ...prev, [slotKey]: false }));
       return result;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Regenerate failed';
-      setLoadingIds((prev) => ({ ...prev, [dishId]: false }));
-      setErrorIds((prev) => ({ ...prev, [dishId]: msg }));
+      setLoadingIds((prev) => ({ ...prev, [slotKey]: false }));
+      setErrorIds((prev) => ({ ...prev, [slotKey]: msg }));
       return null;
     }
   };

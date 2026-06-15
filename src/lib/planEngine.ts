@@ -4,35 +4,33 @@
 // vs user-token-scoped), so this module never imports ./supabase or touches
 // fetch('/api/...').
 
-import { v4 as uuidv4 } from 'uuid';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Kid, ParentPrefs, LunchItem, Dish, ParsedSession, Ingredient, RecipeMealType } from '../types';
-import {
-  getCandidateRecipes,
-  saveAIRecipe,
-  recipeToDish,
-  autoTagRecipe,
-  type RecipeWithTags,
-} from './recipes.js';
+import type {
+  Kid,
+  ParentPrefs,
+  ParsedSession,
+  Ingredient,
+  SlotCategory,
+  DayPlan,
+  LunchboxSlot,
+  SnackSlot,
+  ComponentTags,
+} from '../types';
+import { getCandidateComponents, saveAIComponent, type CandidatePool } from './components.js';
 
 // ── Shared types ────────────────────────────────────────────────────────────
 
 /** Send a message body to the model, return the text response. */
 export type CallModel = (body: object) => Promise<string>;
 
-type DayPick = {
+type Stage2DayPick = {
   day: string;
-  mainRecipeId: string | null;
-  sideRecipeIds: string[];
-  snackRecipeIds: string[];
+  lunchbox: Partial<Record<SlotCategory, LunchboxSlot>>;
+  snacks: SnackSlot[];
   gap?: string;
 };
 
-type Stage2Response = { days: DayPick[] };
-
-// ── Constants ───────────────────────────────────────────────────────────────
-
-const SIDES_PER_DAY = 2;
+type Stage2Response = { days: Stage2DayPick[] };
 
 // ── Pure utilities ──────────────────────────────────────────────────────────
 
@@ -81,53 +79,82 @@ async function runPlanSelection(
   session: ParsedSession,
   kid: Kid,
   parentPrefs: ParentPrefs,
-  candidates: RecipeWithTags[]
+  candidates: CandidatePool
 ): Promise<Stage2Response> {
-  const compactPool = candidates.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description ?? '',
-    mealType: r.mealType,
-    tags: r.tags,
-  }));
+  const compactPool = {
+    byCategory: Object.fromEntries(
+      Object.entries(candidates.byCategory).map(([cat, comps]) => [
+        cat,
+        comps.map((c) => ({
+          id: c.id,
+          name: c.name,
+          also_fills: c.alsoFills ?? [],
+          tags: c.tags,
+        })),
+      ])
+    ),
+    snacks: candidates.snacks.map((c) => ({
+      id: c.id,
+      name: c.name,
+      category: c.category,
+      tags: c.tags,
+    })),
+  };
 
   const snacksPerDay = kid.needsSnacks ? kid.snacksPerDay : 0;
+  const activeSlots = parentPrefs.lunchboxSlots.join(', ');
+  const thermoNote = parentPrefs.hasThermos ? '' : ' Exclude hot-format components.';
 
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: [{ type: 'text' as const, text: `You are a meal planning assistant. Pick recipes from a candidate pool to fill a week of lunches. Do NOT invent new recipes — only use IDs from the pool. Do NOT generate a grocery list.
+    system: [
+      {
+        type: 'text' as const,
+        text: `You are a lunchbox component planner. Select components from a candidate pool to fill ${snacksPerDay > 0 ? `lunchboxes (${activeSlots}) plus ${snacksPerDay} snack(s)` : `lunchboxes (${activeSlots})`} for each day of the week. Do NOT invent new components — only use IDs from the pool.${thermoNote}
 
 ## Selection rules (in priority order)
 
-1. SAFETY first: never pick a recipe whose tags or name conflict with the kid's allergies, school/camp rules, or dietary flags. The pool has been pre-filtered but stay alert.
-2. Match the kid's repetition preference and the parent's prep-time constraint for the week.
-3. Use ingredients the parent mentioned having on hand when possible — the pool is already sorted with those boosted.
-4. Beat the sandwich rut: rotate formats across the week unless the repetition preference says otherwise. Tag categories like "format" and "ingredient" will help.
-5. Minimize unique ingredients across the week. Reuse proteins/produce/dairy across days when sensible (household size: ${parentPrefs.householdSize}).
-6. Each day must have exactly one main, ${SIDES_PER_DAY} side(s), and ${snacksPerDay} snack(s) (or report a gap).
-7. Sides and snacks come from grocery packages that cover many servings (a bag of apples, a box of crackers, a tub of yogurt), so a single purchase naturally spans several days. Don't pick a brand-new side/snack for every day — that buys far more than gets eaten. Instead choose a small rotating set and reuse each item across 2–3 days, sized to how the kid tolerates repetition:
+1. SAFETY first: never pick a component with allergens. Pool is pre-filtered but stay alert.
+2. Each day's lunchbox must fill all active slots from parentPrefs.lunchboxSlots: [${activeSlots}].
+3. Combo items: A component with "also_fills" covers multiple slots. E.g. a turkey sandwich might have also_fills: ["carb"]. Both slots in output should reference the same component_id.
+4. **Minimum 3 distinct physical components per lunchbox** — a combo can fill 2–3 slots, but remaining slots each need their own component.
+5. Snacks are separate from the lunchbox. Pick ${snacksPerDay} snacks per day from the snack pool.
+6. Respect kid.repetitionPreference (${kid.repetitionPreference}):
    - "same-every-day": ~1–2 sides and ~1–2 snacks for the whole week.
-   - "some-variety" (or unspecified): ~2–3 sides and ~2–3 snacks for the week, each repeating across 2–3 days, so the kid sees variety without a different item daily.
-   - "never-repeat": vary freely — accept the larger grocery list, that's the explicit preference.
-   Respect maxPackagedSnacksPerDay regardless. Keep the kid's repetition preference (field: repetitionPreference="${kid.repetitionPreference}") as the deciding factor.
-8. For sides, pick items that complement the main and round out the lunchbox — add fruit, veg, dairy, or crackers the main is missing nutritionally.
+   - "some-variety": ~2–3 sides and ~2–3 snacks, each repeating across 2–3 days.
+   - "never-repeat": vary freely — accept the larger grocery list.
+7. Minimize unique ingredients across the week.
 
 ## Gap handling
-If you can't find a good main for a day — for example the parent mentioned a specific ingredient and no pool recipe uses it as the anchor — return that day as { "day": "...", "mainRecipeId": null, "sideRecipeIds": [...], "snackRecipeIds": [...], "gap": "short reason, e.g. 'no candidate uses peas as anchor'" }. We will invent a recipe to fill it in a follow-up step. Gap snack or side slots are fine — just leave those arrays shorter for that day with a gap reason mentioning snacks/sides.
+
+If you can't fill a slot — no good candidate exists for that category on that day — return that slot empty and add a "gap" reason to that day's object (e.g., "gap": "no protein candidates for vegan"). We will invent a component to fill it in the next step.
 
 ## Output
 
 Output ONLY a valid JSON object, no preamble, no markdown:
 {
   "days": [
-    { "day": "Monday", "mainRecipeId": "uuid-from-pool", "sideRecipeIds": ["uuid", "uuid"], "snackRecipeIds": ["uuid", "uuid"] }
+    {
+      "day": "Monday",
+      "lunchbox": {
+        "protein": { "component_id": "uuid", "name": "Turkey Sandwich" },
+        "carb": { "component_id": "same-uuid", "name": "Turkey Sandwich" },
+        "fruit": { "component_id": "uuid2", "name": "Apple Slices" },
+        "veggie": { "component_id": "uuid3", "name": "Baby Carrots" },
+        "fun": { "component_id": "uuid4", "name": "Chocolate Chips" }
+      },
+      "snacks": [
+        { "component_id": "uuid5", "name": "Goldfish Crackers" }
+      ]
+    }
   ]
-}`, cache_control: { type: 'ephemeral' as const } }],
+}`,
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ],
     messages: [
-      ...(corrective
-        ? [{ role: 'user' as const, content: corrective }]
-        : []),
+      ...(corrective ? [{ role: 'user' as const, content: corrective }] : []),
       {
         role: 'user' as const,
         content: `Kid profile:
@@ -143,7 +170,7 @@ This week's context:
 - Notes: ${session.specialNotes || 'none'}
 - Snacks per day: ${snacksPerDay}
 
-Candidate recipe pool (pick by id):
+Candidate component pool (pick by id):
 ${JSON.stringify(compactPool, null, 2)}`,
       },
     ],
@@ -155,59 +182,84 @@ ${JSON.stringify(compactPool, null, 2)}`,
     for (const d of session.daysNeeded) {
       if (!returned.has(d)) return false;
     }
+    // Check minimum 3 distinct components per lunchbox
+    for (const dp of parsed.days) {
+      const uniqueIds = new Set(Object.values(dp.lunchbox).map((s) => s.component_id));
+      if (uniqueIds.size < 3) return false;
+    }
     return true;
   };
 
   return callWithRetry<Stage2Response>(callModel, buildBody, validate);
 }
 
-// ── Stage 3: invent a recipe for a gap ──────────────────────────────────────
+// ── Stage 3: invent a component for a gap ───────────────────────────────────
 
-export async function generateRecipeForGap(
+export async function generateComponentForGap(
   callModel: CallModel,
   args: {
     kid: Kid;
     parentPrefs: ParentPrefs;
     session: ParsedSession;
     day: string;
-    mealType: RecipeMealType;
+    category: SlotCategory | 'snack';
     gapReason: string;
   }
-): Promise<{ name: string; description: string; prepNotes: string; ingredients: Ingredient[]; mealType: RecipeMealType }> {
-  const { kid, parentPrefs, session, day, mealType, gapReason } = args;
+): Promise<{
+  name: string;
+  category: SlotCategory;
+  ingredients: Ingredient[];
+  alsoFills?: SlotCategory[];
+  canBeSnack: boolean;
+  note?: string;
+  tags: ComponentTags;
+}> {
+  const { kid, parentPrefs, session, day, category, gapReason } = args;
 
   type GapResponse = {
     name: string;
-    description: string;
-    prepNotes: string;
+    category: SlotCategory;
     ingredients: Ingredient[];
+    also_fills?: SlotCategory[];
+    can_be_snack: boolean;
+    note?: string;
+    tags: ComponentTags;
   };
 
-  const mealTypeLabel = mealType === 'main' ? 'lunch main' : mealType === 'side' ? 'lunchbox side' : 'snack';
+  const categoryLabel =
+    category === 'snack'
+      ? 'snack component (can be stand-alone or fill a slot)'
+      : `lunchbox component for the ${category} slot`;
 
   const buildBody = (corrective?: string) => ({
     model: 'claude-sonnet-4-6',
     max_tokens: 2048,
-    system: [{ type: 'text' as const, text: `You are inventing ONE ${mealTypeLabel} to fill a gap the catalog couldn't cover. Real life, not Pinterest. Assembly under 10 minutes if possible.
+    system: [
+      {
+        type: 'text' as const,
+        text: `You are inventing ONE ${categoryLabel} to fill a gap the catalog couldn't cover. Real life, not Pinterest. Assembly/prep under 10 minutes if possible.
 
 ## Rules (in priority order)
-1. SAFETY: never include any allergen listed in the kid's allergies. Respect school/camp rules absolutely.
-2. Respect dietary flags (vegetarian, vegan).
+1. SAFETY: never include any allergen from kid.allergies. Respect school/camp rules absolutely.
+2. Respect dietary flags (isVegetarian, isVegan).
 3. Address the gap reason — that's why the catalog didn't have a fit.
-4. Match the parent's prep-time constraint for the week.
-5. Output one recipe, with name, one-sentence description, full prep steps in prepNotes, and ingredients with quantities and units.
+4. Match the parent's prep-time constraint.
+5. If category is "snack": pick a sensible SlotCategory (e.g. "fruit", "fun") and set can_be_snack: true. The component should work standalone.
+6. If category is one of [protein, carb, fruit, veggie, fun]: fill that slot. Set can_be_snack based on whether it could reasonably be eaten as a snack alone.
+7. If also_fills is relevant (e.g. a sandwich fills both "protein" and "carb"), include it. Otherwise omit or set to empty array.
 
 Output ONLY a valid JSON object, no preamble, no markdown:
-{ "name": "string", "description": "string", "prepNotes": "string", "ingredients": [{ "name": "string", "quantity": "string", "unit": "string" }] }`, cache_control: { type: 'ephemeral' as const } }],
+{ "name": "string", "category": "protein|carb|fruit|veggie|fun", "ingredients": [{ "name": "string", "qty": "string", "unit": "string" }], "also_fills": [], "can_be_snack": false, "note": "optional prep note", "tags": { "prep": [...], "dietary": [...], "format": [...] } }`,
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ],
     messages: [
-      ...(corrective
-        ? [{ role: 'user' as const, content: corrective }]
-        : []),
+      ...(corrective ? [{ role: 'user' as const, content: corrective }] : []),
       {
         role: 'user' as const,
         content: `Kid: ${kid.name}, age ${kid.age}
 Day: ${day}
-Meal type: ${mealType}
+Slot/category: ${category}
 Gap reason: ${gapReason}
 
 Kid profile: ${JSON.stringify(kid)}
@@ -223,16 +275,19 @@ This week's context:
 
   const validate = (parsed: GapResponse) =>
     typeof parsed?.name === 'string' &&
-    typeof parsed?.prepNotes === 'string' &&
-    Array.isArray(parsed?.ingredients);
+    typeof parsed?.category === 'string' &&
+    Array.isArray(parsed?.ingredients) &&
+    typeof parsed?.can_be_snack === 'boolean';
 
   const parsed = await callWithRetry<GapResponse>(callModel, buildBody, validate);
   return {
     name: parsed.name,
-    description: parsed.description ?? '',
-    prepNotes: parsed.prepNotes,
+    category: parsed.category,
     ingredients: parsed.ingredients,
-    mealType,
+    alsoFills: parsed.also_fills,
+    canBeSnack: parsed.can_be_snack,
+    note: parsed.note,
+    tags: parsed.tags,
   };
 }
 
@@ -247,113 +302,101 @@ export async function orchestrateWeeklyPlan(
   session: ParsedSession,
   kid: Kid,
   parentPrefs: ParentPrefs
-): Promise<{ days: string[]; items: LunchItem[] }> {
+): Promise<{ days: string[]; items: Record<string, DayPlan> }> {
   // Stage 1 — retrieve candidate pool.
-  const candidates = await getCandidateRecipes(db, kid, parentPrefs, session);
-  const candidateById = new Map(candidates.map((r) => [r.id, r]));
+  const candidates = await getCandidateComponents(db, kid, parentPrefs, session);
+
+  // Build lookup map of all components by ID
+  const componentById = new Map(
+    [
+      ...Object.entries(candidates.byCategory).flatMap(([_, comps]) => comps),
+      ...candidates.snacks,
+    ].map((c) => [c.id, c])
+  );
 
   // Stage 2 — let the model pick from the pool.
   const selection = await runPlanSelection(callModel, session, kid, parentPrefs, candidates);
 
-  // Stage 3 — fill any gaps and assemble the final LunchItem[].
-  // Order: per-day, within each day main first then snacks. Gap fills are
-  // sequential so the API call order is deterministic and matches test stubs.
-  const snacksPerDay = kid.needsSnacks ? kid.snacksPerDay : 0;
-  const items: LunchItem[] = [];
+  // Stage 3 — fill any gaps and assemble the final Record<string, DayPlan>.
+  const items: Record<string, DayPlan> = {};
 
   for (const day of session.daysNeeded) {
     const pick = selection.days.find((d) => d.day === day);
+    if (!pick) continue;
 
-    const lunches: Dish[] = [];
-    const snacks: Dish[] = [];
+    const lunchbox: Partial<Record<SlotCategory, LunchboxSlot>> = {};
+    const snacks: SnackSlot[] = [];
 
-    const mainCandidate = pick?.mainRecipeId ? candidateById.get(pick.mainRecipeId) : undefined;
-    if (mainCandidate) {
-      lunches.push(recipeToDish(mainCandidate));
-    } else {
-      const reason = pick?.gap || (pick?.mainRecipeId ? 'AI returned an unknown recipe id' : 'no candidate selected');
-      const invented = await generateRecipeForGap(callModel, {
-        kid,
-        parentPrefs,
-        session,
-        day,
-        mealType: 'main',
-        gapReason: reason,
-      });
-      const saved = await saveAIRecipe(db, userId, {
-        name: invented.name,
-        description: invented.description,
-        prepNotes: invented.prepNotes,
-        ingredients: invented.ingredients,
-        mealType: 'main',
-        tags: autoTagRecipe(invented.ingredients),
-      });
-      lunches.push(recipeToDish(saved));
+    // Fill lunchbox slots
+    for (const slot of parentPrefs.lunchboxSlots) {
+      const picked = pick.lunchbox[slot];
+
+      if (picked && componentById.has(picked.component_id)) {
+        // Use the picked component from the pool
+        lunchbox[slot] = picked;
+      } else {
+        // Gap fill: invent a component
+        const reason = pick.gap || `no candidate selected for ${slot}`;
+        const invented = await generateComponentForGap(callModel, {
+          kid,
+          parentPrefs,
+          session,
+          day,
+          category: slot,
+          gapReason: reason,
+        });
+
+        const saved = await saveAIComponent(db, userId, {
+          name: invented.name,
+          category: invented.category,
+          ingredients: invented.ingredients,
+          alsoFills: invented.alsoFills,
+          canBeSnack: invented.canBeSnack,
+          note: invented.note,
+          tags: invented.tags,
+        });
+
+        lunchbox[slot] = {
+          component_id: saved.id,
+          name: saved.name,
+        };
+      }
     }
 
-    const pickedSides = (pick?.sideRecipeIds ?? [])
-      .map((id) => candidateById.get(id))
-      .filter((r): r is RecipeWithTags => Boolean(r))
-      .slice(0, SIDES_PER_DAY);
+    // Fill snacks
+    for (const snackPick of pick.snacks) {
+      if (snackPick && componentById.has(snackPick.component_id)) {
+        snacks.push(snackPick);
+      } else {
+        // Gap fill a snack
+        const reason = pick.gap || 'no snack candidate selected';
+        const invented = await generateComponentForGap(callModel, {
+          kid,
+          parentPrefs,
+          session,
+          day,
+          category: 'snack',
+          gapReason: reason,
+        });
 
-    const sides: Dish[] = [];
-    for (const s of pickedSides) sides.push(recipeToDish(s));
+        const saved = await saveAIComponent(db, userId, {
+          name: invented.name,
+          category: invented.category,
+          ingredients: invented.ingredients,
+          alsoFills: invented.alsoFills,
+          canBeSnack: invented.canBeSnack,
+          note: invented.note,
+          tags: invented.tags,
+        });
 
-    while (sides.length < SIDES_PER_DAY) {
-      const invented = await generateRecipeForGap(callModel, {
-        kid,
-        parentPrefs,
-        session,
-        day,
-        mealType: 'side',
-        gapReason: 'not enough sides selected from the pool',
-      });
-      const saved = await saveAIRecipe(db, userId, {
-        name: invented.name,
-        description: invented.description,
-        prepNotes: invented.prepNotes,
-        ingredients: invented.ingredients,
-        mealType: 'side',
-        tags: autoTagRecipe(invented.ingredients),
-      });
-      sides.push(recipeToDish(saved));
+        snacks.push({
+          component_id: saved.id,
+          name: saved.name,
+        });
+      }
     }
 
-    const pickedSnacks = (pick?.snackRecipeIds ?? [])
-      .map((id) => candidateById.get(id))
-      .filter((r): r is RecipeWithTags => Boolean(r))
-      .slice(0, snacksPerDay);
-
-    for (const s of pickedSnacks) snacks.push(recipeToDish(s));
-
-    while (snacks.length < snacksPerDay) {
-      const invented = await generateRecipeForGap(callModel, {
-        kid,
-        parentPrefs,
-        session,
-        day,
-        mealType: 'snack',
-        gapReason: pick?.gap ? `snack gap: ${pick.gap}` : 'not enough snacks selected from the pool',
-      });
-      const saved = await saveAIRecipe(db, userId, {
-        name: invented.name,
-        description: invented.description,
-        prepNotes: invented.prepNotes,
-        ingredients: invented.ingredients,
-        mealType: 'snack',
-        tags: autoTagRecipe(invented.ingredients),
-      });
-      snacks.push(recipeToDish(saved));
-    }
-
-    items.push({
-      id: uuidv4(),
-      kidId: kid.id,
-      day,
-      lunches,
-      sides,
-      snacks,
-    });
+    items[day] = { lunchbox, snacks };
   }
 
   return { days: session.daysNeeded, items };

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, GroceryItem, ParsedSession } from '../types';
+import type { Kid, ParentPrefs, WeeklyPlan, DayPlan, GroceryItem, ParsedSession } from '../types';
 import { supabase } from '../lib/supabase';
 import { getAuthHeader } from '../lib/ai';
 
@@ -10,11 +10,10 @@ type AppContextValue = {
   loading: boolean;
   saveKid: (kid: Kid) => Promise<void>;
   saveParentPrefs: (prefs: ParentPrefs) => Promise<void>;
-  savePlan: (weekStartDate: string, days: string[], sessionNotes: string, items: LunchItem[]) => Promise<WeeklyPlan>;
-  updatePlanItems: (planId: string, items: LunchItem[]) => Promise<void>;
-  finalizePlan: (planId: string, items: LunchItem[]) => Promise<void>;
+  savePlan: (weekStartDate: string, days: string[], sessionNotes: string, items: Record<string, DayPlan>) => Promise<WeeklyPlan>;
+  updatePlanItems: (planId: string, items: Record<string, DayPlan>) => Promise<void>;
+  finalizePlan: (planId: string, items: Record<string, DayPlan>) => Promise<void>;
   setGroceryList: (planId: string, list: GroceryItem[]) => Promise<void>;
-  setPrepProgress: (planId: string, progress: Record<string, number[]>) => Promise<void>;
   deletePlan: (planId: string) => Promise<void>;
   clearAll: () => Promise<void>;
   storageError: string | null;
@@ -31,11 +30,9 @@ type DbPlan = {
   week_start_date: string;
   status: 'draft' | 'final';
   days: string[];
-  // Rows predating the `sides` field may be missing dish arrays; normalized in dbPlanToWeeklyPlan.
-  items: (Omit<LunchItem, 'lunches' | 'sides' | 'snacks'> & Partial<Pick<LunchItem, 'lunches' | 'sides' | 'snacks'>>)[];
+  items: Record<string, DayPlan>;
   grocery_list: GroceryItem[] | null;
   session_notes: string;
-  prep_progress: Record<string, number[]> | null;
   created_at: string;
 };
 
@@ -46,17 +43,9 @@ function dbPlanToWeeklyPlan(row: DbPlan): WeeklyPlan {
     weekStartDate: row.week_start_date,
     status: row.status,
     days: row.days,
-    // Plans saved before the `sides` field existed have no `sides` key; default all
-    // dish arrays so consumers (PrepModal, EditDayModal, grocery, regenerate) can iterate safely.
-    items: (row.items ?? []).map((item) => ({
-      ...item,
-      lunches: item.lunches ?? [],
-      sides: item.sides ?? [],
-      snacks: item.snacks ?? [],
-    })),
+    items: row.items ?? {},
     groceryList: row.grocery_list,
     sessionNotes: row.session_notes,
-    prepProgress: row.prep_progress ?? {},
   };
 }
 
@@ -159,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     weekStartDate: string,
     days: string[],
     sessionNotes: string,
-    items: LunchItem[]
+    items: Record<string, DayPlan>
   ): Promise<WeeklyPlan> => {
     if (!userId) throw new Error('Not signed in');
     const row = await wrap(async () => {
@@ -173,7 +162,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           items,
           grocery_list: null,
           session_notes: sessionNotes,
-          prep_progress: {},
         }, { onConflict: 'user_id,week_start_date' })
         .select()
         .single();
@@ -185,7 +173,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return plan;
   }, [userId, wrap]);
 
-  const updatePlanItems = useCallback(async (planId: string, items: LunchItem[]) => {
+  const updatePlanItems = useCallback(async (planId: string, items: Record<string, DayPlan>) => {
     await wrap(async () => {
       const { error } = await supabase.from('weekly_plans').update({ items }).eq('id', planId);
       if (error) throw error;
@@ -193,7 +181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, items } : p)));
   }, [wrap]);
 
-  const finalizePlan = useCallback(async (planId: string, items: LunchItem[]) => {
+  const finalizePlan = useCallback(async (planId: string, items: Record<string, DayPlan>) => {
     await wrap(async () => {
       const { error } = await supabase
         .from('weekly_plans')
@@ -210,15 +198,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
     });
     setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, groceryList: list } : p)));
-  }, [wrap]);
-
-  const setPrepProgress = useCallback(async (planId: string, progress: Record<string, number[]>) => {
-    // Optimistic local update so checkboxes feel instant; persist in the background.
-    setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, prepProgress: progress } : p)));
-    await wrap(async () => {
-      const { error } = await supabase.from('weekly_plans').update({ prep_progress: progress }).eq('id', planId);
-      if (error) throw error;
-    });
   }, [wrap]);
 
   const deletePlan = useCallback(async (planId: string) => {
@@ -271,9 +250,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error((data as { error?: string }).error ?? `Server error ${res.status}`);
         }
 
-        const result = (await res.json()) as { days: string[]; items: LunchItem[] };
-        const itemsWithKid = result.items.map((item) => ({ ...item, kidId: kid.id }));
-        await savePlan(weekStartDate, result.days, session.specialNotes, itemsWithKid);
+        const result = (await res.json()) as { days: string[]; items: Record<string, DayPlan> };
+        await savePlan(weekStartDate, result.days, session.specialNotes, result.items);
         setBackgroundGen({ active: false, weekStartDate: null, error: null });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Generation failed';
@@ -298,7 +276,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatePlanItems,
       finalizePlan,
       setGroceryList,
-      setPrepProgress,
       deletePlan,
       clearAll,
       storageError,
