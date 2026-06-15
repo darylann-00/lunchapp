@@ -184,7 +184,11 @@ ${JSON.stringify(compactPool, null, 2)}`,
     }
     // Check minimum 3 distinct components per lunchbox
     for (const dp of parsed.days) {
-      const uniqueIds = new Set(Object.values(dp.lunchbox).map((s) => s.component_id));
+      const uniqueIds = new Set(
+        Object.values(dp.lunchbox)
+          .filter((s): s is LunchboxSlot => s != null)
+          .map((s) => s.component_id)
+      );
       if (uniqueIds.size < 3) return false;
     }
     return true;
