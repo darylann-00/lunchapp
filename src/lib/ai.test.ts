@@ -1,19 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Kid, ParentPrefs, ParsedSession } from '../types';
-import type { RecipeWithTags } from './recipes';
+import type { Kid, ParentPrefs, ParsedSession, Component } from '../types';
 
-const { getCandidateRecipesMock, saveAIRecipeMock, sessionMock } = vi.hoisted(() => ({
-  getCandidateRecipesMock: vi.fn(),
-  saveAIRecipeMock: vi.fn(),
+const { getCandidateComponentsMock, saveAIComponentMock, sessionMock } = vi.hoisted(() => ({
+  getCandidateComponentsMock: vi.fn(),
+  saveAIComponentMock: vi.fn(),
   sessionMock: { access_token: 'tok' },
 }));
 
-vi.mock('./recipes', async () => {
-  const actual = await vi.importActual<typeof import('./recipes')>('./recipes');
+vi.mock('./components', async () => {
+  const actual = await vi.importActual<typeof import('./components')>('./components');
   return {
     ...actual,
-    getCandidateRecipes: getCandidateRecipesMock,
-    saveAIRecipe: saveAIRecipeMock,
+    getCandidateComponents: getCandidateComponentsMock,
+    saveAIComponent: saveAIComponentMock,
   };
 });
 
@@ -23,6 +22,11 @@ vi.mock('./supabase', () => ({
       getSession: vi.fn().mockResolvedValue({ data: { session: sessionMock } }),
       getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-42' } }, error: null }),
     },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    }),
   },
 }));
 
@@ -79,23 +83,19 @@ const PREFS: ParentPrefs = {
   stores: [],
   organic: 'doesnt-matter',
   otherNotes: '',
+  lunchboxSlots: ['protein', 'carb', 'fruit', 'veggie', 'fun'],
+  hasThermos: false,
 };
 
-function candidate(id: string, name: string, mealType: 'main' | 'snack' | 'side'): RecipeWithTags {
+function comp(id: string, name: string, category: Component['category'], canBeSnack = false): Component {
   return {
     id,
     name,
-    description: '',
-    prepNotes: 'steps',
-    ingredients: [{ name: 'bread', quantity: '1', unit: 'slice' }],
-    mealType,
-    isPackaged: false,
+    category,
+    ingredients: [{ name: 'bread', qty: '1', unit: 'slice' }],
+    canBeSnack,
+    tags: {},
     source: 'curated',
-    sourceUrl: null,
-    sourceAttribution: null,
-    prepTimeMinutes: null,
-    createdBy: null,
-    tags: [],
   };
 }
 
@@ -112,33 +112,42 @@ function stubAnthropic(responses: string[]) {
 
 describe('generateWeeklyPlan', () => {
   beforeEach(() => {
-    getCandidateRecipesMock.mockReset();
-    saveAIRecipeMock.mockReset();
+    getCandidateComponentsMock.mockReset();
+    saveAIComponentMock.mockReset();
   });
 
   it('hydrates picks from the candidate pool when no gaps', async () => {
-    getCandidateRecipesMock.mockResolvedValue([
-      candidate('m1', 'Turkey wrap', 'main'),
-      candidate('m2', 'Cheese quesadilla', 'main'),
-      candidate('d1', 'Apple slices', 'side'),
-      candidate('d2', 'Carrot sticks', 'side'),
-      candidate('d3', 'Cheese cubes', 'side'),
-      candidate('d4', 'Crackers', 'side'),
-      candidate('s1', 'Granola bar', 'snack'),
-      candidate('s2', 'Yogurt cup', 'snack'),
-    ]);
+    getCandidateComponentsMock.mockResolvedValue({
+      byCategory: {
+        protein: [comp('p1', 'Turkey wrap', 'protein')],
+        carb: [comp('c1', 'Crackers', 'carb', true)],
+        fruit: [comp('f1', 'Apple slices', 'fruit', true)],
+        veggie: [comp('v1', 'Baby carrots', 'veggie', true)],
+        fun: [comp('fn1', 'Chocolate chips', 'fun', true)],
+      },
+      snacks: [comp('c1', 'Crackers', 'carb', true)],
+    });
 
     stubAnthropic([
       JSON.stringify({
         days: [
-          { day: 'Monday', mainRecipeId: 'm1', sideRecipeIds: ['d1', 'd2'], snackRecipeIds: ['s1'] },
-          { day: 'Tuesday', mainRecipeId: 'm2', sideRecipeIds: ['d3', 'd4'], snackRecipeIds: ['s2'] },
+          {
+            day: 'Monday',
+            lunchbox: {
+              protein: { component_id: 'p1', name: 'Turkey wrap' },
+              carb: { component_id: 'c1', name: 'Crackers' },
+              fruit: { component_id: 'f1', name: 'Apple slices' },
+              veggie: { component_id: 'v1', name: 'Baby carrots' },
+              fun: { component_id: 'fn1', name: 'Chocolate chips' },
+            },
+            snacks: [{ component_id: 'c1', name: 'Crackers' }],
+          },
         ],
       }),
     ]);
 
     const session: ParsedSession = {
-      daysNeeded: ['Monday', 'Tuesday'],
+      daysNeeded: ['Monday'],
       ingredientsOnHand: [],
       specialNotes: '',
       prepTimeAvailable: 'medium',
@@ -146,118 +155,76 @@ describe('generateWeeklyPlan', () => {
 
     const { days, items } = await generateWeeklyPlan(session, KID, PREFS);
 
-    expect(days).toEqual(['Monday', 'Tuesday']);
-    expect(items.map((i) => i.day)).toEqual(['Monday', 'Tuesday']);
-    expect(items[0]!.lunches[0]!.name).toBe('Turkey wrap');
-    expect(items[0]!.sides.length).toBe(2);
-    expect(items[0]!.sides[0]!.name).toBe('Apple slices');
-    expect(items[0]!.sides[1]!.name).toBe('Carrot sticks');
-    expect(items[0]!.snacks[0]!.name).toBe('Granola bar');
-    expect(items[1]!.lunches[0]!.name).toBe('Cheese quesadilla');
-    expect(saveAIRecipeMock).not.toHaveBeenCalled();
+    expect(days).toEqual(['Monday']);
+    expect(items['Monday']).toBeDefined();
+    expect(items['Monday']!.lunchbox.protein?.name).toBe('Turkey wrap');
+    expect(items['Monday']!.lunchbox.fruit?.name).toBe('Apple slices');
+    expect(items['Monday']!.snacks[0]?.name).toBe('Crackers');
+    expect(saveAIComponentMock).not.toHaveBeenCalled();
   });
 
-  it('treats hallucinated recipe IDs as gaps and invokes Stage 3', async () => {
-    getCandidateRecipesMock.mockResolvedValue([candidate('m1', 'Turkey wrap', 'main')]);
+  it('fills gaps when AI returns unknown component IDs', async () => {
+    getCandidateComponentsMock.mockResolvedValue({
+      byCategory: {
+        protein: [comp('p1', 'Turkey wrap', 'protein')],
+        carb: [],
+        fruit: [comp('f1', 'Apple slices', 'fruit', true)],
+        veggie: [comp('v1', 'Baby carrots', 'veggie', true)],
+        fun: [comp('fn1', 'Chocolate chips', 'fun', true)],
+      },
+      snacks: [comp('f1', 'Apple slices', 'fruit', true)],
+    });
 
-    saveAIRecipeMock.mockImplementation(async (_db: unknown, _userId: string, { name }: { name: string }) => ({
-      id: 'saved-1',
+    saveAIComponentMock.mockImplementation(async (_db: unknown, _userId: string, { name }: { name: string }) => ({
+      id: `saved-${name}`,
       name,
-      description: '',
-      prepNotes: 'AI prep',
-      ingredients: [{ name: 'peas', quantity: '1', unit: 'cup' }],
-      mealType: 'main' as const,
-      isPackaged: false,
-      source: 'ai' as const,
-      sourceUrl: null,
-      sourceAttribution: null,
-      prepTimeMinutes: null,
-      createdBy: 'user-42',
-      tags: [],
+      category: 'carb',
+      ingredients: [{ name: 'pasta', qty: '1', unit: 'cup' }],
+      canBeSnack: false,
+      tags: {},
+      source: 'ai',
     }));
 
     stubAnthropic([
-      // Stage 2: Monday uses a valid pool id; Tuesday uses a hallucinated id.
+      // Stage 2: carb slot references an unknown ID
       JSON.stringify({
         days: [
-          { day: 'Monday', mainRecipeId: 'm1', sideRecipeIds: [], snackRecipeIds: [] },
-          { day: 'Tuesday', mainRecipeId: 'not-in-pool', sideRecipeIds: [], snackRecipeIds: [] },
+          {
+            day: 'Monday',
+            lunchbox: {
+              protein: { component_id: 'p1', name: 'Turkey wrap' },
+              carb: { component_id: 'not-in-pool', name: 'Unknown' },
+              fruit: { component_id: 'f1', name: 'Apple slices' },
+              veggie: { component_id: 'v1', name: 'Baby carrots' },
+              fun: { component_id: 'fn1', name: 'Chocolate chips' },
+            },
+            snacks: [{ component_id: 'f1', name: 'Apple slices' }],
+          },
         ],
       }),
-      // Stage 3 order matches generateWeeklyPlan: per-day, within day main-sides-snacks.
-      // Monday main is in the pool. First gap is Monday's 2 sides.
+      // Stage 3: gap fill for carb slot
       JSON.stringify({
-        name: 'Mon side 1',
-        description: '',
-        prepNotes: 'Cut',
-        ingredients: [{ name: 'carrots', quantity: '1', unit: 'medium' }],
-      }),
-      // Monday side 2
-      JSON.stringify({
-        name: 'Mon side 2',
-        description: '',
-        prepNotes: 'Wash',
-        ingredients: [{ name: 'apple', quantity: '1', unit: 'medium' }],
-      }),
-      // Then Monday's snack.
-      JSON.stringify({
-        name: 'Mon snack',
-        description: '',
-        prepNotes: 'Open bag',
-        ingredients: [{ name: 'crackers', quantity: '1', unit: 'oz' }],
-      }),
-      // Then Tuesday's main (hallucinated id → gap).
-      JSON.stringify({
-        name: 'Pea pasta',
-        description: 'Quick pasta',
-        prepNotes: 'Boil and stir',
-        ingredients: [{ name: 'peas', quantity: '1', unit: 'cup' }],
-      }),
-      // Then Tuesday's 2 sides.
-      JSON.stringify({
-        name: 'Tue side 1',
-        description: '',
-        prepNotes: 'Open',
-        ingredients: [{ name: 'cheese', quantity: '1', unit: 'oz' }],
-      }),
-      // Tuesday side 2
-      JSON.stringify({
-        name: 'Tue side 2',
-        description: '',
-        prepNotes: 'Slice',
-        ingredients: [{ name: 'tomato', quantity: '1', unit: 'medium' }],
-      }),
-      // Then Tuesday's snack.
-      JSON.stringify({
-        name: 'Tue snack',
-        description: '',
-        prepNotes: 'Open bag',
-        ingredients: [{ name: 'crackers', quantity: '1', unit: 'oz' }],
+        name: 'Pasta salad',
+        category: 'carb',
+        ingredients: [{ name: 'pasta', qty: '1', unit: 'cup' }],
+        also_fills: [],
+        can_be_snack: false,
+        note: 'Make ahead',
+        tags: { prep: ['make-ahead'], dietary: ['vegetarian'], format: ['cold'] },
       }),
     ]);
 
     const session: ParsedSession = {
-      daysNeeded: ['Monday', 'Tuesday'],
-      ingredientsOnHand: ['peas'],
-      specialNotes: 'we have peas',
+      daysNeeded: ['Monday'],
+      ingredientsOnHand: [],
+      specialNotes: '',
       prepTimeAvailable: 'medium',
     };
 
     const { items } = await generateWeeklyPlan(session, KID, PREFS);
 
-    expect(items[0]!.lunches[0]!.name).toBe('Turkey wrap');
-    expect(items[1]!.lunches[0]!.name).toBe('Pea pasta');
-    // saveAIRecipe should be called 7 times: Mon (2 sides + 1 snack) + Tue (1 main + 2 sides + 1 snack).
-    expect(saveAIRecipeMock).toHaveBeenCalledTimes(7);
-    // Order: Mon side 1, Mon side 2, Mon snack, Tue main, Tue side 1, Tue side 2, Tue snack.
-    expect(saveAIRecipeMock.mock.calls.map((c) => (c[2] as { mealType: string }).mealType)).toEqual([
-      'side',
-      'side',
-      'snack',
-      'main',
-      'side',
-      'side',
-      'snack',
-    ]);
+    expect(items['Monday']!.lunchbox.protein?.name).toBe('Turkey wrap');
+    expect(items['Monday']!.lunchbox.carb?.name).toBe('Pasta salad');
+    expect(saveAIComponentMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../context/AppContext';
-import type { Kid, ParentPrefs } from '../types';
+import type { Kid, ParentPrefs, SlotCategory } from '../types';
+import { SLOT_LABELS, SLOT_EMOJI } from '../types';
 
 export const DIETARY_OPTIONS = [
   { id: 'peanut-free', label: 'Peanut-free', allergen: 'peanuts' },
@@ -114,6 +115,17 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
   const [dislikesRaw, setDislikesRaw] = useState(prefillKid?.dislikes.join(', ') ?? '');
   const [schoolRules, setSchoolRules] = useState(prefillKid?.schoolOrCampRules ?? '');
   const [needsSnacks, setNeedsSnacks] = useState(prefillKid?.needsSnacks ?? true);
+  const [lunchboxSlots, setLunchboxSlots] = useState<SlotCategory[]>(
+    prefillPrefs?.lunchboxSlots ?? ['protein', 'carb', 'fruit', 'veggie', 'fun'],
+  );
+  const [hasThermos, setHasThermos] = useState(prefillPrefs?.hasThermos ?? false);
+
+  const toggleSlot = (slot: SlotCategory) => {
+    if (slot === 'protein') return;
+    setLunchboxSlots((prev) =>
+      prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot],
+    );
+  };
 
   const toggleRestriction = (id: string) => {
     setRestrictions((prev) => {
@@ -150,12 +162,14 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
       otherDietaryNotes: prefillKid?.otherDietaryNotes ?? '',
     };
 
-    const finalPrefs: ParentPrefs = prefillPrefs ?? {
-      weeklyBudget: null,
-      householdSize: 2,
-      stores: [],
-      organic: 'when-possible',
-      otherNotes: '',
+    const finalPrefs: ParentPrefs = {
+      weeklyBudget: prefillPrefs?.weeklyBudget ?? null,
+      householdSize: prefillPrefs?.householdSize ?? 2,
+      stores: prefillPrefs?.stores ?? [],
+      organic: prefillPrefs?.organic ?? 'when-possible',
+      otherNotes: prefillPrefs?.otherNotes ?? '',
+      lunchboxSlots,
+      hasThermos,
     };
 
     setSaving(true);
@@ -318,6 +332,61 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
             className="w-full rounded-xl border-2 border-luncharoo-dark/30 focus:border-luncharoo-dark outline-none px-3 py-2 text-sm font-fredoka text-luncharoo-dark placeholder:text-slate-300 bg-luncharoo-beige/40 resize-none"
           />
         </div>
+
+        {/* Lunchbox slots */}
+        <div>
+          <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1.5">
+            Lunchbox slots
+            <span className="font-normal text-slate-400 ml-1">(what goes in the box)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(['protein', 'carb', 'fruit', 'veggie', 'fun'] as SlotCategory[]).map((slot) => {
+              const active = lunchboxSlots.includes(slot);
+              const locked = slot === 'protein';
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => toggleSlot(slot)}
+                  disabled={locked}
+                  className={`flex items-center gap-1.5 rounded-xl border-2 px-3 py-2 text-xs font-fredoka font-bold transition-all luncharoo-press ${
+                    active
+                      ? 'bg-luncharoo-dark text-white border-luncharoo-dark shadow-[2px_2px_0px_rgba(19,78,158,0.4)]'
+                      : 'bg-luncharoo-beige/50 text-luncharoo-dark/40 border-luncharoo-dark/20'
+                  } ${locked ? 'cursor-default' : ''}`}
+                >
+                  <span>{SLOT_EMOJI[slot]}</span>
+                  <span>{SLOT_LABELS[slot]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Thermos toggle */}
+        <button
+          type="button"
+          onClick={() => setHasThermos((v) => !v)}
+          className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-sm font-fredoka font-bold transition-all luncharoo-press ${
+            hasThermos
+              ? 'bg-luncharoo-coral/20 border-luncharoo-coral text-luncharoo-dark'
+              : 'bg-luncharoo-beige/50 border-luncharoo-dark/25 text-slate-400'
+          }`}
+        >
+          <span className="text-lg">{hasThermos ? '🥣' : '➕'}</span>
+          <span>{hasThermos ? 'Has a thermos!' : 'Add thermos'}</span>
+          <span
+            className={`ml-auto w-10 h-5 rounded-full border-2 border-luncharoo-dark/30 relative transition-colors ${
+              hasThermos ? 'bg-luncharoo-dark' : 'bg-luncharoo-dark/15'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white border border-luncharoo-dark/30 shadow transition-all ${
+                hasThermos ? 'left-[calc(100%-1rem)]' : 'left-0.5'
+              }`}
+            />
+          </span>
+        </button>
 
         {/* Snacks toggle */}
         <button

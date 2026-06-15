@@ -1,9 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAI } from '../hooks/useAI';
-import { useKid } from '../hooks/useKid';
-import { useParentPrefs } from '../hooks/useParentPrefs';
-import type { WeeklyPlan, GroceryItem, Ingredient } from '../types';
+import type { GroceryItem } from '../types';
 import { getMondayISO, addWeeks, formatWeekRange } from '../lib/dateUtils';
 
 const CATEGORY_LABELS: Record<GroceryItem['category'], string> = {
@@ -16,92 +14,60 @@ const CATEGORY_LABELS: Record<GroceryItem['category'], string> = {
   other: '🛒 Other',
 };
 
-function aggregateIngredients(plans: WeeklyPlan[]): (Ingredient & { days: string[] })[] {
-  const map = new Map<string, Ingredient & { days: string[] }>();
-  for (const plan of plans) {
-    for (const item of plan.items) {
-      const allDishes = [...item.lunches, ...item.snacks];
-      for (const dish of allDishes) {
-        for (const ing of dish.ingredients) {
-          const key = ing.name.toLowerCase().trim();
-          if (map.has(key)) {
-            const existing = map.get(key)!;
-            if (!existing.days.includes(item.day)) existing.days.push(item.day);
-          } else {
-            map.set(key, { ...ing, days: [item.day] });
-          }
-        }
-      }
-    }
-  }
-  return Array.from(map.values());
-}
-
 type Props = {
   showToast: (msg: string) => void;
 };
 
 export default function GroceryTab({ showToast }: Props) {
   const { plans, setGroceryList } = useApp();
-  const { kid } = useKid();
-  const { parentPrefs: prefs } = useParentPrefs();
   const { generateGrocery } = useAI();
 
   const thisMonday = getMondayISO(new Date());
   const [fromWeek, setFromWeek] = useState(thisMonday);
   const [toWeek, setToWeek] = useState(thisMonday);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const [generating, setGenerating] = useState(false);
 
   const selectedPlans = useMemo(() => {
     return plans.filter((p) => p.weekStartDate >= fromWeek && p.weekStartDate <= toWeek);
   }, [plans, fromWeek, toWeek]);
 
-  // Use AI-generated grocery list if available and only one plan selected, otherwise aggregate
-  const aiList: GroceryItem[] | null = useMemo(() => {
+  // Get the grocery list for a single selected plan (auto-generated on finalize or fetch from DB)
+  const groceryList: GroceryItem[] | null = useMemo(() => {
     if (selectedPlans.length === 1 && selectedPlans[0].groceryList) {
       return selectedPlans[0].groceryList;
     }
     return null;
   }, [selectedPlans]);
 
-  const rawIngredients = useMemo(() => aggregateIngredients(selectedPlans), [selectedPlans]);
-
   const toggleCheck = (key: string) =>
     setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const handleGenerateAI = async () => {
-    if (!kid || !prefs || selectedPlans.length === 0) return;
-    setGenerating(true);
-    const list = await generateGrocery.call(selectedPlans, kid, prefs);
-    if (list && selectedPlans.length === 1) {
-      setGroceryList(selectedPlans[0].id, list);
-      showToast('✨ Smart grocery list generated!');
+  const handleGenerateGrocery = async () => {
+    if (selectedPlans.length !== 1) return;
+    const plan = selectedPlans[0];
+    if (plan.status !== 'final' || plan.groceryList) return;
+
+    const list = await generateGrocery.call(plan);
+    if (list) {
+      setGroceryList(plan.id, list);
+      showToast('✨ Grocery list generated!');
     }
-    setGenerating(false);
   };
 
   const copyToClipboard = () => {
-    if (selectedPlans.length === 0) return;
+    if (!groceryList || selectedPlans.length === 0) return;
     let text = '🍱 BENTOBOT GROCERY LIST\n\n';
-    if (aiList) {
-      const byCategory = aiList.reduce<Record<string, GroceryItem[]>>((acc, item) => {
-        (acc[item.category] ??= []).push(item);
-        return acc;
-      }, {});
-      for (const [cat, items] of Object.entries(byCategory)) {
-        text += `[ ${CATEGORY_LABELS[cat as GroceryItem['category']] ?? cat} ]\n`;
-        items.forEach((i) => {
-          const done = checked[`ai-${i.name}`] ? '✔️' : '[ ]';
-          text += `${done} ${i.quantity} ${i.unit} ${i.name}\n`;
-        });
-        text += '\n';
-      }
-    } else {
-      rawIngredients.forEach((i) => {
-        const done = checked[`raw-${i.name}`] ? '✔️' : '[ ]';
-        text += `${done} ${i.quantity} ${i.unit} ${i.name}\n`;
+    const byCategory = groceryList.reduce<Record<string, GroceryItem[]>>((acc, item) => {
+      (acc[item.category] ??= []).push(item);
+      return acc;
+    }, {});
+    for (const [cat, items] of Object.entries(byCategory)) {
+      text += `[ ${CATEGORY_LABELS[cat as GroceryItem['category']] ?? cat} ]\n`;
+      items.forEach((i) => {
+        const done = checked[i.name] ? '✔️' : '[ ]';
+        text += `${done} ${i.qty} ${i.unit} ${i.name}\n`;
       });
+      text += '\n';
     }
     navigator.clipboard.writeText(text).then(() => showToast('📋 Copied to clipboard!'));
   };
@@ -169,32 +135,43 @@ export default function GroceryTab({ showToast }: Props) {
         <div className="bg-white luncharoo-border rounded-2xl luncharoo-shadow overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b-2 border-luncharoo-dark/10">
             <h3 className="font-fredoka text-sm font-bold text-luncharoo-dark flex items-center gap-1.5">
-              🧺 Ingredients
+              🧺 Groceries
             </h3>
             <div className="flex gap-1.5">
-              {selectedPlans.length === 1 && !aiList && kid && prefs && (
+              {selectedPlans.length === 1 && selectedPlans[0].status === 'final' && !groceryList && (
                 <button
-                  onClick={handleGenerateAI}
-                  disabled={generating}
+                  onClick={handleGenerateGrocery}
+                  disabled={generateGrocery.loading}
                   className="bg-luncharoo-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg luncharoo-border luncharoo-shadow-sm luncharoo-press disabled:opacity-50 font-bold"
                 >
-                  {generating ? '...' : '✨ Smart List'}
+                  {generateGrocery.loading ? '...' : '✨ Generate'}
                 </button>
               )}
-              <button
-                onClick={copyToClipboard}
-                className="bg-luncharoo-beige text-luncharoo-dark font-fredoka text-xs px-2 py-1 rounded-lg border border-luncharoo-dark luncharoo-press font-bold"
-              >
-                📋 Copy
-              </button>
+              {groceryList && (
+                <button
+                  onClick={copyToClipboard}
+                  className="bg-luncharoo-beige text-luncharoo-dark font-fredoka text-xs px-2 py-1 rounded-lg border border-luncharoo-dark luncharoo-press font-bold"
+                >
+                  📋 Copy
+                </button>
+              )}
             </div>
           </div>
 
           <div className="px-4 py-3 max-h-[400px] overflow-y-auto space-y-3">
-            {aiList ? (
-              // AI-generated categorized list
+            {generateGrocery.loading ? (
+              <div className="py-8 text-center">
+                <p className="text-sm text-slate-500">Generating grocery list...</p>
+              </div>
+            ) : generateGrocery.error ? (
+              <div className="py-8 text-center">
+                <p className="text-sm text-luncharoo-coral font-bold">Error generating list</p>
+                <p className="text-xs text-slate-500 mt-1">{generateGrocery.error}</p>
+              </div>
+            ) : groceryList ? (
+              // Categorized grocery list
               Object.entries(
-                aiList.reduce<Record<string, GroceryItem[]>>((acc, item) => {
+                groceryList.reduce<Record<string, GroceryItem[]>>((acc, item) => {
                   (acc[item.category] ??= []).push(item);
                   return acc;
                 }, {})
@@ -205,7 +182,7 @@ export default function GroceryTab({ showToast }: Props) {
                   </h4>
                   <div className="space-y-1">
                     {items.map((item) => {
-                      const key = `ai-${item.name}`;
+                      const key = item.name;
                       return (
                         <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                           <input
@@ -215,7 +192,7 @@ export default function GroceryTab({ showToast }: Props) {
                             className="w-4 h-4 accent-luncharoo-coral"
                           />
                           <span className={`text-sm ${checked[key] ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                            {item.quantity} {item.unit} <span className="font-semibold">{item.name}</span>
+                            {item.qty} {item.unit} <span className="font-semibold">{item.name}</span>
                           </span>
                         </label>
                       );
@@ -224,25 +201,11 @@ export default function GroceryTab({ showToast }: Props) {
                 </div>
               ))
             ) : (
-              // Raw aggregated ingredients
-              <div className="space-y-1">
-                {rawIngredients.map((ing) => {
-                  const key = `raw-${ing.name}`;
-                  return (
-                    <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={!!checked[key]}
-                        onChange={() => toggleCheck(key)}
-                        className="w-4 h-4 accent-luncharoo-coral"
-                      />
-                      <span className={`text-xs ${checked[key] ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                        {ing.quantity} {ing.unit} <span className="font-semibold">{ing.name}</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400 ml-auto">{ing.days.join(', ')}</span>
-                    </label>
-                  );
-                })}
+              <div className="py-8 text-center">
+                <p className="text-sm text-slate-500">No grocery list yet</p>
+                {selectedPlans.length === 1 && selectedPlans[0].status === 'draft' && (
+                  <p className="text-xs text-slate-400 mt-1">Finalize your plan to generate a list.</p>
+                )}
               </div>
             )}
           </div>

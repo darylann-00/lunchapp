@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Kid, ParentPrefs } from '../types';
+import { SLOT_LABELS, SLOT_EMOJI } from '../types';
 import Onboarding, { DIETARY_OPTIONS } from '../pages/Onboarding';
 
 type Props = {
@@ -21,7 +22,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function ProfileTab({ kid, prefs: _prefs, onSaved }: Props) {
+export default function ProfileTab({ kid, prefs, onSaved }: Props) {
   const [editing, setEditing] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -56,6 +57,7 @@ export default function ProfileTab({ kid, prefs: _prefs, onSaved }: Props) {
           <div className="px-4 py-4">
             <Onboarding
               prefillKid={kid}
+              prefillPrefs={prefs ?? undefined}
               onSaved={handleSaved}
               compact
             />
@@ -145,22 +147,59 @@ export default function ProfileTab({ kid, prefs: _prefs, onSaved }: Props) {
             <InfoRow label="School / camp rules" value={kid.schoolOrCampRules} />
           )}
 
-          {/* Snacks */}
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-8 h-4 rounded-full border-2 border-luncharoo-dark/30 relative flex-shrink-0 ${
-                kid.needsSnacks ? 'bg-luncharoo-dark' : 'bg-luncharoo-dark/15'
-              }`}
-            >
+          {/* Lunchbox slots */}
+          {prefs && (
+            <div>
+              <span className="text-[10px] font-fredoka font-bold text-luncharoo-dark/50 uppercase tracking-wider block mb-2">
+                Lunchbox slots
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {prefs.lunchboxSlots.map((slot) => (
+                  <span
+                    key={slot}
+                    className="bg-luncharoo-dark text-white text-xs font-fredoka font-bold px-2.5 py-1 rounded-lg"
+                  >
+                    {SLOT_EMOJI[slot]} {SLOT_LABELS[slot]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Thermos + Snacks */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <span
-                className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white border border-luncharoo-dark/20 shadow transition-all ${
-                  kid.needsSnacks ? 'left-[calc(100%-0.75rem)]' : 'left-0.5'
+                className={`w-8 h-4 rounded-full border-2 border-luncharoo-dark/30 relative flex-shrink-0 ${
+                  prefs?.hasThermos ? 'bg-luncharoo-dark' : 'bg-luncharoo-dark/15'
                 }`}
-              />
-            </span>
-            <span className="text-xs font-fredoka font-semibold text-luncharoo-dark/70">
-              {kid.needsSnacks ? 'Packing snacks' : 'No snacks'}
-            </span>
+              >
+                <span
+                  className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white border border-luncharoo-dark/20 shadow transition-all ${
+                    prefs?.hasThermos ? 'left-[calc(100%-0.75rem)]' : 'left-0.5'
+                  }`}
+                />
+              </span>
+              <span className="text-xs font-fredoka font-semibold text-luncharoo-dark/70">
+                {prefs?.hasThermos ? '🥣 Thermos' : 'No thermos'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-8 h-4 rounded-full border-2 border-luncharoo-dark/30 relative flex-shrink-0 ${
+                  kid.needsSnacks ? 'bg-luncharoo-dark' : 'bg-luncharoo-dark/15'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white border border-luncharoo-dark/20 shadow transition-all ${
+                    kid.needsSnacks ? 'left-[calc(100%-0.75rem)]' : 'left-0.5'
+                  }`}
+                />
+              </span>
+              <span className="text-xs font-fredoka font-semibold text-luncharoo-dark/70">
+                {kid.needsSnacks ? '🍎 Snacks' : 'No snacks'}
+              </span>
+            </div>
           </div>
         </div>
       </div>

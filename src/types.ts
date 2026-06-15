@@ -1,3 +1,70 @@
+// ── Slot / Component types ─────────────────────────────────────────────────
+
+export type SlotCategory = 'protein' | 'carb' | 'fruit' | 'veggie' | 'fun';
+
+export const SLOT_LABELS: Record<SlotCategory, string> = {
+  protein: 'Protein',
+  carb: 'Energy Carb',
+  fruit: 'Fruit',
+  veggie: 'Veggie',
+  fun: 'Fun Bite',
+};
+
+export const SLOT_EMOJI: Record<SlotCategory, string> = {
+  protein: '🥩',
+  carb: '🍞',
+  fruit: '🍎',
+  veggie: '🥕',
+  fun: '🍫',
+};
+
+export type Ingredient = {
+  name: string;
+  qty: string;
+  unit?: string;
+};
+
+export type ComponentTags = {
+  prep?: ('make-ahead' | 'packaged' | 'fresh' | 'freezer-friendly')[];
+  dietary?: ('nut-free' | 'dairy-free' | 'gluten-free' | 'vegetarian' | 'vegan' | 'egg-free')[];
+  format?: ('hot' | 'cold' | 'room-temp')[];
+};
+
+export type ComponentSource = 'curated' | 'ai' | 'user';
+export type ComponentReaction = 'like' | 'dislike' | 'favorite';
+
+export type Component = {
+  id: string;
+  name: string;
+  category: SlotCategory;
+  alsoFills?: SlotCategory[];
+  canBeSnack: boolean;
+  ingredients: Ingredient[];
+  note?: string;
+  tags: ComponentTags;
+  source: ComponentSource;
+  createdBy?: string | null;
+};
+
+// ── Plan types ─────────────────────────────────────────────────────────────
+
+export type LunchboxSlot = {
+  component_id: string;
+  name: string;
+};
+
+export type SnackSlot = {
+  component_id: string;
+  name: string;
+};
+
+export type DayPlan = {
+  lunchbox: Partial<Record<SlotCategory, LunchboxSlot>>;
+  snacks: SnackSlot[];
+};
+
+// ── Kid / Parent / Plan ────────────────────────────────────────────────────
+
 export type Kid = {
   id: string;
   name: string;
@@ -21,43 +88,15 @@ export type ParentPrefs = {
   stores: string[];
   organic: 'always' | 'never' | 'when-possible' | 'doesnt-matter';
   otherNotes: string;
-};
-
-export type Ingredient = {
-  name: string;
-  quantity: string;
-  unit: string;
-};
-
-export type Dish = {
-  id: string;
-  name: string;
-  description: string;
-  prepNotes: string;
-  ingredients: Ingredient[];
-  isPackaged: boolean;
-  prepTimeMinutes?: number | null;
-  // Present only for catalog-sourced dishes; absent for AI/user dishes and
-  // plans generated before attribution was threaded through.
-  sourceUrl?: string | null;
-  sourceAttribution?: string | null;
-};
-
-export type LunchItem = {
-  id: string;
-  kidId: string;
-  day: string;
-  lunches: Dish[];
-  sides: Dish[];
-  snacks: Dish[];
+  lunchboxSlots: SlotCategory[];
+  hasThermos: boolean;
 };
 
 export type GroceryItem = {
   name: string;
-  quantity: string;
+  qty: string;
   unit: string;
   category: 'produce' | 'dairy' | 'protein' | 'grains' | 'packaged' | 'condiments' | 'other';
-  forKids: string[];
 };
 
 export type WeeklyPlan = {
@@ -66,10 +105,9 @@ export type WeeklyPlan = {
   weekStartDate: string;
   status: 'draft' | 'final';
   days: string[];
-  items: LunchItem[];
+  items: Record<string, DayPlan>;
   groceryList: GroceryItem[] | null;
   sessionNotes: string;
-  prepProgress: Record<string, number[]>;
 };
 
 export type ParsedSession = {
@@ -77,44 +115,4 @@ export type ParsedSession = {
   ingredientsOnHand: string[];
   specialNotes: string;
   prepTimeAvailable: 'low' | 'medium' | 'high';
-};
-
-export type RecipeSource = 'curated' | 'ai' | 'user';
-export type RecipeMealType = 'main' | 'snack' | 'side';
-export type RecipeReaction = 'like' | 'dislike' | 'favorite';
-export type TagCategory = 'dietary' | 'format' | 'ingredient' | 'occasion';
-
-export type Recipe = {
-  id: string;
-  name: string;
-  description: string | null;
-  prepNotes: string;
-  ingredients: Ingredient[];
-  mealType: RecipeMealType;
-  isPackaged: boolean;
-  source: RecipeSource;
-  sourceUrl: string | null;
-  sourceAttribution: string | null;
-  prepTimeMinutes: number | null;
-  createdBy: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type RecipeTag = {
-  id: string;
-  name: string;
-  category: TagCategory;
-};
-
-export type RecipeTagAssignment = {
-  recipeId: string;
-  tagId: string;
-};
-
-export type RecipeFeedback = {
-  userId: string;
-  recipeId: string;
-  reaction: RecipeReaction;
-  createdAt: string;
 };

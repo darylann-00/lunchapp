@@ -1,45 +1,26 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { RecipeMealType, RecipeReaction, LunchItem } from '../types';
-import { useApp } from '../context/AppContext';
-import { useKid } from '../hooks/useKid';
+import { useState, useEffect, useMemo } from 'react';
+import type { SlotCategory, ComponentReaction } from '../types';
+import { SLOT_LABELS, SLOT_EMOJI } from '../types';
 import { supabase } from '../lib/supabase';
-import { getRecipesForBrowse, upsertRecipeFeedback, recipeToDish, type RecipeWithFeedback } from '../lib/recipes';
-import { dishSteps } from '../lib/prepSteps';
-import { formatWeekRange, weekRelativeLabel, getDayDate, addWeeks } from '../lib/dateUtils';
+import { getComponentsForBrowse, upsertComponentFeedback, type ComponentWithFeedback } from '../lib/components';
 
-const MEAL_TYPE_STYLES: Record<RecipeMealType, string> = {
-  main: 'bg-luncharoo-coral/20 text-luncharoo-coral',
-  snack: 'bg-luncharoo-yellow/30 text-luncharoo-dark',
-  side: 'bg-emerald-100 text-emerald-700',
+const CATEGORY_COLORS: Record<SlotCategory, string> = {
+  protein: 'bg-luncharoo-coral/20 text-luncharoo-coral',
+  carb: 'bg-luncharoo-yellow/20 text-luncharoo-dark',
+  fruit: 'bg-emerald-100 text-emerald-700',
+  veggie: 'bg-luncharoo-blue/20 text-luncharoo-blue',
+  fun: 'bg-purple-100 text-purple-700',
 };
 
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
-
-const DAY_COLORS: Record<string, string> = {
-  Monday: 'bg-luncharoo-coral text-white',
-  Tuesday: 'bg-luncharoo-peach text-white',
-  Wednesday: 'bg-luncharoo-yellow text-luncharoo-dark',
-  Thursday: 'bg-luncharoo-blue text-white',
-  Friday: 'bg-emerald-500 text-white',
-};
-
-// ── Recipe detail modal ────────────────────────────────────────────────────
+// ── Component detail modal ────────────────────────────────────────────────────
 
 type DetailModalProps = {
-  recipe: RecipeWithFeedback;
-  weekStart: string;
+  component: ComponentWithFeedback;
   onClose: () => void;
-  onToggleFeedback: (recipeId: string, current: RecipeReaction | null, next: RecipeReaction) => void;
-  onAddToDay: (recipe: RecipeWithFeedback, day: string, targetWeek: string) => Promise<void>;
+  onToggleFeedback: (componentId: string, current: ComponentReaction | null, next: ComponentReaction) => void;
 };
 
-function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, onAddToDay }: DetailModalProps) {
-  const steps = dishSteps(r.name, r.prepNotes);
-  const [showDayPicker, setShowDayPicker] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [pickerWeek, setPickerWeek] = useState(weekStart);
-
+function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: DetailModalProps) {
   return (
     <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-luncharoo-dark/60 backdrop-blur-sm" onClick={onClose} />
@@ -50,17 +31,17 @@ function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, on
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 ${MEAL_TYPE_STYLES[r.mealType]}`}>
-                  {r.mealType}
+                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 ${CATEGORY_COLORS[c.category]}`}>
+                  {SLOT_EMOJI[c.category]} {SLOT_LABELS[c.category]}
                 </span>
-                {r.prepTimeMinutes !== null && (
+                {c.canBeSnack && (
                   <span className="text-[10px] font-fredoka font-bold text-white/80">
-                    {r.prepTimeMinutes} min
+                    🍿 Snack
                   </span>
                 )}
               </div>
               <p className="font-fredoka text-white text-base font-bold leading-snug">
-                {r.name}
+                {c.name}
               </p>
             </div>
             <button
@@ -77,22 +58,43 @@ function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, on
         <div className="max-h-[60vh] overflow-y-auto">
           <div className="px-4 pt-4 pb-2 space-y-4">
 
-            {/* Description */}
-            {r.description && (
-              <p className="text-xs text-luncharoo-dark/70 font-medium leading-relaxed">{r.description}</p>
+            {/* Note */}
+            {c.note && (
+              <p className="text-xs text-luncharoo-dark/70 font-medium leading-relaxed">{c.note}</p>
+            )}
+
+            {/* Tags */}
+            {(c.tags.prep?.length || c.tags.dietary?.length || c.tags.format?.length) && (
+              <div className="flex flex-wrap gap-1.5">
+                {c.tags.prep?.map((tag) => (
+                  <span key={tag} className="text-[10px] font-fredoka font-bold uppercase bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                    {tag}
+                  </span>
+                ))}
+                {c.tags.dietary?.map((tag) => (
+                  <span key={tag} className="text-[10px] font-fredoka font-bold uppercase bg-green-100 text-green-700 px-2 py-1 rounded">
+                    {tag}
+                  </span>
+                ))}
+                {c.tags.format?.map((tag) => (
+                  <span key={tag} className="text-[10px] font-fredoka font-bold uppercase bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             )}
 
             {/* Ingredients */}
-            {r.ingredients.length > 0 && (
+            {c.ingredients.length > 0 && (
               <div className="bg-luncharoo-beige/50 border border-luncharoo-dark/15 rounded-xl p-2.5">
                 <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider mb-1.5">
                   🧺 Ingredients
                 </p>
                 <ul className="space-y-1">
-                  {r.ingredients.map((ing, i) => (
+                  {c.ingredients.map((ing, i) => (
                     <li key={i} className="flex items-baseline gap-2 text-xs text-luncharoo-dark/90">
                       <span className="font-semibold text-luncharoo-dark whitespace-nowrap">
-                        {[ing.quantity, ing.unit].filter(Boolean).join(' ')}
+                        {[ing.qty, ing.unit].filter(Boolean).join(' ')}
                       </span>
                       <span className="font-medium">{ing.name}</span>
                     </li>
@@ -101,128 +103,49 @@ function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, on
               </div>
             )}
 
-            {/* Prep steps */}
-            {steps.length > 0 && (
-              <div>
+            {/* Also fills */}
+            {c.alsoFills && c.alsoFills.length > 0 && (
+              <div className="bg-luncharoo-beige/50 border border-luncharoo-dark/15 rounded-xl p-2.5">
                 <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider mb-1.5">
-                  👩‍🍳 Prep notes
+                  ♻️ Also fills
                 </p>
-                <div className="space-y-1.5">
-                  {steps.map((step, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-3 bg-luncharoo-beige/35 border border-luncharoo-dark/10 p-2.5 rounded-xl"
-                    >
-                      <span className="w-5 h-5 mt-0.5 rounded border-2 border-luncharoo-dark/20 bg-white flex items-center justify-center text-[10px] font-fredoka font-bold text-luncharoo-dark/40 flex-shrink-0">
-                        {i + 1}
-                      </span>
-                      <span className="text-xs text-luncharoo-dark/95 font-medium leading-relaxed">
-                        {step}
-                      </span>
-                    </div>
+                <div className="flex flex-wrap gap-2">
+                  {c.alsoFills.map((cat) => (
+                    <span key={cat} className={`text-[10px] font-fredoka font-bold rounded-lg px-2 py-1 ${CATEGORY_COLORS[cat]}`}>
+                      {SLOT_EMOJI[cat]} {SLOT_LABELS[cat]}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
 
             {/* Source */}
-            {r.sourceAttribution && (
+            {c.source && (
               <p className="text-[10px] text-luncharoo-dark/40 font-medium text-center pb-1">
-                via{' '}
-                {r.sourceUrl ? (
-                  <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                    {r.sourceAttribution}
-                  </a>
-                ) : (
-                  r.sourceAttribution
-                )}
+                Source: <span className="capitalize">{c.source}</span>
               </p>
             )}
           </div>
         </div>
 
-        {/* Footer — feedback + add to plan */}
-        <div className="px-4 pb-4 pt-3 space-y-2">
-          {showDayPicker ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={() => setPickerWeek((w) => addWeeks(w, -1))}
-                  className="w-6 h-6 bg-luncharoo-beige rounded-lg luncharoo-border flex items-center justify-center font-bold text-luncharoo-dark/70 luncharoo-press text-xs"
-                >
-                  ‹
-                </button>
-                <div className="text-center min-w-[130px]">
-                  <p className="text-[10px] font-fredoka font-bold text-luncharoo-coral uppercase tracking-wider leading-none">
-                    {weekRelativeLabel(pickerWeek)}
-                  </p>
-                  <p className="text-[10px] font-semibold text-luncharoo-dark/60">
-                    {formatWeekRange(pickerWeek)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setPickerWeek((w) => addWeeks(w, 1))}
-                  className="w-6 h-6 bg-luncharoo-beige rounded-lg luncharoo-border flex items-center justify-center font-bold text-luncharoo-dark/70 luncharoo-press text-xs"
-                >
-                  ›
-                </button>
-              </div>
-              <div className="flex gap-1.5 justify-center">
-                {WEEKDAYS.map((day) => {
-                  const dateStr = getDayDate(pickerWeek, day);
-                  const dateNum = new Date(dateStr + 'T12:00:00').getDate();
-                  return (
-                    <button
-                      key={day}
-                      disabled={adding}
-                      onClick={async () => {
-                        setAdding(true);
-                        await onAddToDay(r, day, pickerWeek);
-                        onClose();
-                      }}
-                      className={`flex flex-col items-center px-2 py-1.5 rounded-lg luncharoo-border luncharoo-shadow-sm font-fredoka font-bold luncharoo-press disabled:opacity-50 ${DAY_COLORS[day]}`}
-                    >
-                      <span className="text-xs leading-none">{day.slice(0, 3)}</span>
-                      <span className="text-[10px] leading-none opacity-80">{dateNum}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setShowDayPicker(false)}
-                className="w-full text-center text-xs font-fredoka text-luncharoo-dark/50 py-1"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowDayPicker(true)}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press bg-luncharoo-yellow text-luncharoo-dark"
-              >
-                + Add to Plan
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onToggleFeedback(r.id, r.reaction, 'favorite')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
-                    r.reaction === 'favorite' ? 'bg-luncharoo-coral text-white' : 'bg-white text-luncharoo-dark/70'
-                  }`}
-                >
-                  {r.reaction === 'favorite' ? '♥' : '♡'} Favorite
-                </button>
-                <button
-                  onClick={() => onToggleFeedback(r.id, r.reaction, 'dislike')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
-                    r.reaction === 'dislike' ? 'bg-slate-200 text-slate-600' : 'bg-white text-luncharoo-dark/70'
-                  }`}
-                >
-                  {r.reaction === 'dislike' ? '⊘ Unhide' : '○ Hide'}
-                </button>
-              </div>
-            </>
-          )}
+        {/* Footer — feedback buttons */}
+        <div className="px-4 pb-4 pt-3 flex gap-2">
+          <button
+            onClick={() => onToggleFeedback(c.id, c.reaction, 'favorite')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
+              c.reaction === 'favorite' ? 'bg-luncharoo-coral text-white' : 'bg-white text-luncharoo-dark/70'
+            }`}
+          >
+            {c.reaction === 'favorite' ? '♥' : '♡'} Favorite
+          </button>
+          <button
+            onClick={() => onToggleFeedback(c.id, c.reaction, 'dislike')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl luncharoo-border luncharoo-shadow-sm font-fredoka font-bold text-sm luncharoo-press ${
+              c.reaction === 'dislike' ? 'bg-slate-200 text-slate-600' : 'bg-white text-luncharoo-dark/70'
+            }`}
+          >
+            {c.reaction === 'dislike' ? '⊘ Unhide' : '○ Hide'}
+          </button>
         </div>
       </div>
     </div>
@@ -231,22 +154,16 @@ function RecipeDetailModal({ recipe: r, weekStart, onClose, onToggleFeedback, on
 
 // ── Main pane ─────────────────────────────────────────────────────────────
 
-type PaneProps = {
-  weekStart: string;
-  onAddedToPlan: (msg: string) => void;
-};
-
-export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps) {
-  const [recipes, setRecipes] = useState<RecipeWithFeedback[]>([]);
+export default function ComponentBrowser() {
+  const [components, setComponents] = useState<ComponentWithFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMealType, setSelectedMealType] = useState<RecipeMealType | 'all'>('all');
-  const [selectedPrepTime, setSelectedPrepTime] = useState<string>('any');
+  const [selectedCategory, setSelectedCategory] = useState<SlotCategory | 'all'>('all');
   const [showHidden, setShowHidden] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState<RecipeWithFeedback | null>(null);
+  const [selectedComponent, setSelectedComponent] = useState<ComponentWithFeedback | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -256,9 +173,9 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
         const session = await supabase.auth.getSession();
         if (!session.data.session?.user?.id) throw new Error('Not authenticated');
         setUserId(session.data.session.user.id);
-        setRecipes(await getRecipesForBrowse(supabase));
+        setComponents(await getComponentsForBrowse(supabase));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load recipes');
+        setError(err instanceof Error ? err.message : 'Failed to load components');
       } finally {
         setLoading(false);
       }
@@ -266,98 +183,31 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
     fetchData();
   }, []);
 
-  const filteredRecipes = useMemo(() => {
-    return recipes
-      .filter((r) => (r.reaction === 'dislike' && !showHidden ? false : true))
-      .filter((r) => selectedMealType === 'all' || r.mealType === selectedMealType)
-      .filter((r) => {
-        if (selectedPrepTime === 'any') return true;
-        if (r.prepTimeMinutes === null) return false;
-        if (selectedPrepTime === '≤10') return r.prepTimeMinutes <= 10;
-        if (selectedPrepTime === '11–25') return r.prepTimeMinutes >= 11 && r.prepTimeMinutes <= 25;
-        if (selectedPrepTime === '25+') return r.prepTimeMinutes > 25;
-        return true;
-      })
-      .filter((r) => {
+  const filteredComponents = useMemo(() => {
+    return components
+      .filter((c) => (c.reaction === 'dislike' && !showHidden ? false : true))
+      .filter((c) => selectedCategory === 'all' || c.category === selectedCategory)
+      .filter((c) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
-        return r.name.toLowerCase().includes(q) || (r.description?.toLowerCase().includes(q) ?? false);
+        return c.name.toLowerCase().includes(q) || (c.note?.toLowerCase().includes(q) ?? false);
       });
-  }, [recipes, showHidden, selectedMealType, selectedPrepTime, searchQuery]);
-
-  const { plans, savePlan, updatePlanItems } = useApp();
-  const { kid } = useKid();
+  }, [components, showHidden, selectedCategory, searchQuery]);
 
   const handleToggleFeedback = async (
-    recipeId: string,
-    currentReaction: RecipeReaction | null,
-    newReaction: RecipeReaction
+    componentId: string,
+    currentReaction: ComponentReaction | null,
+    newReaction: ComponentReaction
   ) => {
     if (!userId) return;
     try {
-      const result = await upsertRecipeFeedback(supabase, userId, recipeId, currentReaction, newReaction);
-      setRecipes((prev) => prev.map((r) => (r.id === recipeId ? { ...r, reaction: result } : r)));
-      setSelectedRecipe((prev) => (prev?.id === recipeId ? { ...prev, reaction: result } : prev));
+      const result = await upsertComponentFeedback(supabase, userId, componentId, currentReaction, newReaction);
+      setComponents((prev) => prev.map((c) => (c.id === componentId ? { ...c, reaction: result } : c)));
+      setSelectedComponent((prev) => (prev?.id === componentId ? { ...prev, reaction: result } : prev));
     } catch (err) {
       console.error('Failed to update feedback:', err);
     }
   };
-
-  const handleAddToDay = useCallback(async (recipe: RecipeWithFeedback, day: string, targetWeek: string) => {
-    if (!kid) return;
-    const dish = recipeToDish(recipe);
-    const slot: 'lunches' | 'sides' | 'snacks' =
-      recipe.mealType === 'main' ? 'lunches' : recipe.mealType === 'side' ? 'sides' : 'snacks';
-
-    try {
-      const existingPlan = plans.find((p) => p.weekStartDate === targetWeek);
-
-      if (existingPlan) {
-        const existingItem = existingPlan.items.find((it) => it.day === day);
-        let updatedItems: LunchItem[];
-
-        if (existingItem) {
-          updatedItems = existingPlan.items.map((it) =>
-            it.day === day
-              ? {
-                  ...it,
-                  lunches: slot === 'lunches' ? [...it.lunches, dish] : it.lunches,
-                  sides: slot === 'sides' ? [...it.sides, dish] : it.sides,
-                  snacks: slot === 'snacks' ? [...it.snacks, dish] : it.snacks,
-                }
-              : it
-          );
-        } else {
-          const newItem: LunchItem = {
-            id: uuidv4(),
-            kidId: kid.id,
-            day,
-            lunches: slot === 'lunches' ? [dish] : [],
-            sides: slot === 'sides' ? [dish] : [],
-            snacks: slot === 'snacks' ? [dish] : [],
-          };
-          updatedItems = [...existingPlan.items, newItem];
-        }
-
-        await updatePlanItems(existingPlan.id, updatedItems);
-      } else {
-        const newItem: LunchItem = {
-          id: uuidv4(),
-          kidId: kid.id,
-          day,
-          lunches: slot === 'lunches' ? [dish] : [],
-          sides: slot === 'sides' ? [dish] : [],
-          snacks: slot === 'snacks' ? [dish] : [],
-        };
-        await savePlan(targetWeek, [day], '', [newItem]);
-      }
-
-      const weekLabel = weekRelativeLabel(targetWeek).toLowerCase();
-      onAddedToPlan(`Added ${dish.name} to ${day} (${weekLabel})`);
-    } catch (err) {
-      onAddedToPlan(`⚠️ Failed to add: ${err instanceof Error ? err.message : 'unknown error'}`);
-    }
-  }, [kid, plans, updatePlanItems, savePlan, onAddedToPlan]);
 
   if (loading) {
     return (
@@ -375,93 +225,82 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
     );
   }
 
+  const categories: (SlotCategory | 'all')[] = ['all', 'protein', 'carb', 'fruit', 'veggie', 'fun'];
+
   return (
     <div className="h-full flex flex-col relative">
       {/* Filter bar */}
       <div className="bg-white luncharoo-border-b px-3 py-3 flex flex-col gap-3 flex-shrink-0">
         <input
           type="text"
-          placeholder="Search recipes…"
+          placeholder="Search components…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-lg border-2 border-luncharoo-dark/20 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-luncharoo-blue"
         />
         <div className="flex gap-2 flex-wrap">
-          {(['all', 'main', 'snack', 'side'] as const).map((type) => (
+          {categories.map((cat) => (
             <button
-              key={type}
-              onClick={() => setSelectedMealType(type as RecipeMealType | 'all')}
+              key={cat}
+              onClick={() => setSelectedCategory(cat as SlotCategory | 'all')}
               className={`font-fredoka font-bold text-xs rounded-lg px-3 py-1 luncharoo-press transition-colors ${
-                selectedMealType === type ? 'bg-luncharoo-dark text-white' : 'bg-luncharoo-beige text-luncharoo-dark/70'
+                selectedCategory === cat ? 'bg-luncharoo-dark text-white' : 'bg-luncharoo-beige text-luncharoo-dark/70'
               }`}
             >
-              {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {(['any', '≤10', '11–25', '25+'] as const).map((time) => (
-            <button
-              key={time}
-              onClick={() => setSelectedPrepTime(time)}
-              className={`font-fredoka font-bold text-xs rounded-lg px-3 py-1 luncharoo-press transition-colors ${
-                selectedPrepTime === time ? 'bg-luncharoo-blue text-white' : 'bg-luncharoo-beige text-luncharoo-dark/70'
-              }`}
-            >
-              {time === 'any' ? 'Any time' : `${time} min`}
+              {cat === 'all' ? 'All' : `${SLOT_EMOJI[cat as SlotCategory]} ${SLOT_LABELS[cat as SlotCategory]}`}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Recipe list */}
+      {/* Component list */}
       <div className="flex-1 overflow-y-auto min-h-0 px-3 pt-3 pb-4 flex flex-col gap-3">
-        {filteredRecipes.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center mt-4">No recipes match your filters.</p>
+        {filteredComponents.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center mt-4">No components match your filters.</p>
         ) : (
-          filteredRecipes.map((recipe) => (
+          filteredComponents.map((component) => (
             <button
-              key={recipe.id}
-              onClick={() => setSelectedRecipe(recipe)}
+              key={component.id}
+              onClick={() => setSelectedComponent(component)}
               className={`bg-white luncharoo-border rounded-2xl luncharoo-shadow-sm p-3 flex flex-col gap-1.5 text-left w-full luncharoo-press ${
-                recipe.reaction === 'dislike' ? 'opacity-50' : ''
+                component.reaction === 'dislike' ? 'opacity-50' : ''
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-fredoka font-bold text-sm text-luncharoo-dark flex-1">{recipe.name}</h3>
-                {recipe.prepTimeMinutes !== null && (
+                <h3 className="font-fredoka font-bold text-sm text-luncharoo-dark flex-1">{component.name}</h3>
+                {component.canBeSnack && (
                   <span className="bg-luncharoo-beige luncharoo-border text-[10px] font-fredoka font-bold text-luncharoo-dark/70 rounded-lg px-2 py-0.5 flex-shrink-0">
-                    {recipe.prepTimeMinutes} min
+                    🍿 Snack
                   </span>
                 )}
               </div>
 
-              {recipe.reaction === 'dislike' ? (
+              {component.reaction === 'dislike' ? (
                 <span className="text-[9px] font-fredoka font-bold uppercase tracking-wider bg-slate-200 text-slate-600 rounded-md px-1.5 py-0.5 w-fit">
                   Hidden
                 </span>
-              ) : recipe.description ? (
-                <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{recipe.description}</p>
+              ) : component.note ? (
+                <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{component.note}</p>
               ) : null}
 
               <div className="flex items-center justify-between gap-2 pt-1">
-                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 ${MEAL_TYPE_STYLES[recipe.mealType]}`}>
-                  {recipe.mealType}
+                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 ${CATEGORY_COLORS[component.category]}`}>
+                  {SLOT_EMOJI[component.category]} {SLOT_LABELS[component.category]}
                 </span>
                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => handleToggleFeedback(recipe.id, recipe.reaction, 'favorite')}
-                    className={`text-lg luncharoo-press transition-colors ${recipe.reaction === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'}`}
-                    aria-label={recipe.reaction === 'favorite' ? 'Remove favorite' : 'Add favorite'}
+                    onClick={() => handleToggleFeedback(component.id, component.reaction, 'favorite')}
+                    className={`text-lg luncharoo-press transition-colors ${component.reaction === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'}`}
+                    aria-label={component.reaction === 'favorite' ? 'Remove favorite' : 'Add favorite'}
                   >
-                    {recipe.reaction === 'favorite' ? '♥' : '♡'}
+                    {component.reaction === 'favorite' ? '♥' : '♡'}
                   </button>
                   <button
-                    onClick={() => handleToggleFeedback(recipe.id, recipe.reaction, 'dislike')}
-                    className={`text-lg luncharoo-press transition-colors ${recipe.reaction === 'dislike' ? 'text-slate-400' : 'text-slate-300'}`}
-                    aria-label={recipe.reaction === 'dislike' ? 'Show recipe' : 'Hide recipe'}
+                    onClick={() => handleToggleFeedback(component.id, component.reaction, 'dislike')}
+                    className={`text-lg luncharoo-press transition-colors ${component.reaction === 'dislike' ? 'text-slate-400' : 'text-slate-300'}`}
+                    aria-label={component.reaction === 'dislike' ? 'Show component' : 'Hide component'}
                   >
-                    {recipe.reaction === 'dislike' ? '⊘' : '○'}
+                    {component.reaction === 'dislike' ? '⊘' : '○'}
                   </button>
                 </div>
               </div>
@@ -488,18 +327,16 @@ export default function RecipeBrowsePane({ weekStart, onAddedToPlan }: PaneProps
           <span className="text-xs font-fredoka font-semibold text-luncharoo-dark/70">Show hidden</span>
         </div>
         <span className="text-xs font-fredoka text-slate-400">
-          {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''}
+          {filteredComponents.length} component{filteredComponents.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Detail modal */}
-      {selectedRecipe && (
-        <RecipeDetailModal
-          recipe={selectedRecipe}
-          weekStart={weekStart}
-          onClose={() => setSelectedRecipe(null)}
+      {selectedComponent && (
+        <ComponentDetailModal
+          component={selectedComponent}
+          onClose={() => setSelectedComponent(null)}
           onToggleFeedback={handleToggleFeedback}
-          onAddToDay={handleAddToDay}
         />
       )}
     </div>

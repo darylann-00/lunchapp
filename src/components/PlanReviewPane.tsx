@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Kid, ParentPrefs, WeeklyPlan, LunchItem, Dish } from '../types';
-import type { RecipeWithTags } from '../lib/recipes';
-import { getRecipesForPicker } from '../lib/recipes';
-import { supabase } from '../lib/supabase';
+import { useState, useCallback } from 'react';
+import type { WeeklyPlan, DayPlan, SlotCategory, ComponentReaction } from '../types';
+import { SLOT_EMOJI, SLOT_LABELS } from '../types';
 import { getDayDate } from '../lib/dateUtils';
-import { DishRow } from './DishRow';
-import { useItemRegenerate } from '../hooks/useAI';
+import { useApp } from '../context/AppContext';
+import { useKid } from '../hooks/useKid';
+import { useParentPrefs } from '../hooks/useParentPrefs';
+import { useSlotRegenerate } from '../hooks/useAI';
+import { saveAIComponent, upsertComponentFeedback } from '../lib/components';
+import { supabase } from '../lib/supabase';
 
 const DAY_COLORS: Record<string, string> = {
   Monday: 'bg-luncharoo-coral',
@@ -31,127 +32,179 @@ function isDayPast(mondayISO: string, dayName: string): boolean {
   return new Date(iso + 'T12:00:00') < today;
 }
 
-function totalPrepMinutes(item: LunchItem): number {
-  const all = [...item.lunches, ...item.sides, ...item.snacks];
-  return all.reduce((sum, d) => sum + (d.prepTimeMinutes ?? 0), 0);
-}
-
 type Props = {
   plan: WeeklyPlan;
-  kid: Kid;
-  prefs: ParentPrefs;
-  onFinalize: (planId: string, items: LunchItem[]) => Promise<void>;
   onClose: () => void;
 };
 
-type RecipeCache = {
-  main: RecipeWithTags[];
-  side: RecipeWithTags[];
-  snack: RecipeWithTags[];
-};
+export default function PlanReviewPane({ plan, onClose }: Props) {
+  const { finalizePlan } = useApp();
+  const { kid } = useKid();
+  const { parentPrefs: prefs } = useParentPrefs();
+  const { loadingIds, errorIds, regenerate } = useSlotRegenerate();
 
-export default function PlanReviewPane({ plan, kid, prefs, onFinalize, onClose }: Props) {
-  const [draft, setDraft] = useState<LunchItem[]>(() =>
-    JSON.parse(JSON.stringify(plan.items))
+  const [draft, setDraft] = useState<Record<string, DayPlan>>(() =>
+    JSON.parse(JSON.stringify(plan.items)) as Record<string, DayPlan>
   );
-  const [recipes, setRecipes] = useState<RecipeCache>({ main: [], side: [], snack: [] });
   const [saving, setSaving] = useState(false);
-  const [swapSource, setSwapSource] = useState<string | null>(null);
-  const { loadingIds, errorIds, regenerate } = useItemRegenerate([]);
+  const [feedback, setFeedback] = useState<Record<string, ComponentReaction | null>>({});
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      getRecipesForPicker(supabase, 'main', kid),
-      getRecipesForPicker(supabase, 'side', kid),
-      getRecipesForPicker(supabase, 'snack', kid),
-    ]).then(([mains, sides, snacks]) => {
-      if (!cancelled) setRecipes({ main: mains, side: sides, snack: snacks });
-    });
-    return () => { cancelled = true; };
-  }, [kid]);
+  const handleFeedback = useCallback(
+    async (componentId: string, newReaction: ComponentReaction) => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user?.id) return;
 
-  const updateDish = useCallback(
-    (itemId: string, category: 'lunches' | 'sides' | 'snacks', dishIndex: number, newDish: Dish) => {
-      setDraft((prev) =>
-        prev.map((item) => {
-          if (item.id !== itemId) return item;
-          const updated = [...item[category]];
-          updated[dishIndex] = newDish;
-          return { ...item, [category]: updated };
-        })
-      );
+      const current = feedback[componentId] ?? null;
+      try {
+        const result = await upsertComponentFeedback(
+          supabase, user.user.id, componentId, current, newReaction,
+        );
+        setFeedback((prev) => ({ ...prev, [componentId]: result }));
+      } catch (err) {
+        console.error('Failed to save feedback:', err);
+      }
     },
-    []
+    [feedback],
   );
 
-  const removeDish = useCallback(
-    (itemId: string, category: 'lunches' | 'sides' | 'snacks', dishIndex: number) => {
-      setDraft((prev) =>
-        prev.map((item) => {
-          if (item.id !== itemId) return item;
-          return { ...item, [category]: item[category].filter((_, i) => i !== dishIndex) };
-        })
-      );
-    },
-    []
-  );
-
-  const swapDays = useCallback((dayA: string, dayB: string) => {
-    setDraft((prev) => {
-      const itemA = prev.find((i) => i.day === dayA);
-      const itemB = prev.find((i) => i.day === dayB);
-      if (!itemA || !itemB) return prev;
-      return prev.map((item) => {
-        if (item.id === itemA.id) return { ...item, day: dayB, lunches: itemB.lunches, sides: itemB.sides, snacks: itemB.snacks };
-        if (item.id === itemB.id) return { ...item, day: dayA, lunches: itemA.lunches, sides: itemA.sides, snacks: itemA.snacks };
-        return item;
+  // Collect all component names in the plan for regeneration context
+  const getAllComponentNames = useCallback((): string[] => {
+    const names: string[] = [];
+    Object.values(draft).forEach((dayPlan) => {
+      Object.values(dayPlan.lunchbox).forEach((slot) => {
+        if (slot?.name && !names.includes(slot.name)) {
+          names.push(slot.name);
+        }
+      });
+      dayPlan.snacks.forEach((snack) => {
+        if (snack?.name && !names.includes(snack.name)) {
+          names.push(snack.name);
+        }
       });
     });
-  }, []);
+    return names;
+  }, [draft]);
 
-  const handleRegenerate = useCallback(
-    async (item: LunchItem, category: 'lunches' | 'sides' | 'snacks', dishIndex: number) => {
-      const dish = item[category][dishIndex];
-      const mealType = category === 'lunches' ? 'lunch' : category === 'sides' ? 'side' : 'snack';
-      const allDishes = draft.flatMap((i) => [...i.lunches, ...i.sides, ...i.snacks]);
-      const otherDishes = allDishes.filter((d) => d.id !== dish.id);
+  const handleRegenerateSlot = useCallback(
+    async (day: string, category: SlotCategory, slotKey: string) => {
+      if (!kid || !prefs) return;
 
-      const result = await regenerate(dish.id, {
+      const dayPlan = draft[day];
+      if (!dayPlan) return;
+
+      const slot = dayPlan.lunchbox[category];
+      if (!slot) return;
+
+      const otherComponentNames = getAllComponentNames().filter((n) => n !== slot.name);
+
+      const result = await regenerate(slotKey, {
         kid,
         parentPrefs: prefs,
         sessionNotes: plan.sessionNotes,
-        day: item.day,
-        mealType,
-        currentDish: dish,
+        day,
+        slotCategory: category,
+        currentName: slot.name,
         userNote: '',
-        otherDishesThisWeek: otherDishes,
+        otherComponentNames,
       });
+
       if (result) {
-        updateDish(item.id, category, dishIndex, result);
+        // Save the new component to DB
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user?.id) throw new Error('Not authenticated');
+
+        const savedComponent = await saveAIComponent(supabase, user.user.id, {
+          name: result.name,
+          category: result.category,
+          ingredients: result.ingredients,
+          alsoFills: result.alsoFills,
+          canBeSnack: result.canBeSnack,
+          note: result.note,
+          tags: result.tags,
+        });
+
+        // Update the draft with the new component
+        setDraft((prev) => ({
+          ...prev,
+          [day]: {
+            ...prev[day],
+            lunchbox: {
+              ...prev[day].lunchbox,
+              [category]: {
+                component_id: savedComponent.id,
+                name: savedComponent.name,
+              },
+            },
+          },
+        }));
       }
     },
-    [draft, kid, prefs, plan.sessionNotes, regenerate, updateDish]
+    [draft, kid, prefs, plan.sessionNotes, regenerate, getAllComponentNames]
+  );
+
+  const handleRegenerateSnack = useCallback(
+    async (day: string, snackIndex: number, slotKey: string) => {
+      if (!kid || !prefs) return;
+
+      const dayPlan = draft[day];
+      if (!dayPlan || !dayPlan.snacks[snackIndex]) return;
+
+      const snack = dayPlan.snacks[snackIndex];
+      const otherComponentNames = getAllComponentNames().filter((n) => n !== snack.name);
+
+      const result = await regenerate(slotKey, {
+        kid,
+        parentPrefs: prefs,
+        sessionNotes: plan.sessionNotes,
+        day,
+        slotCategory: 'snack',
+        currentName: snack.name,
+        userNote: '',
+        otherComponentNames,
+      });
+
+      if (result) {
+        // Save the new component to DB
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user?.id) throw new Error('Not authenticated');
+
+        const savedComponent = await saveAIComponent(supabase, user.user.id, {
+          name: result.name,
+          category: result.category,
+          ingredients: result.ingredients,
+          alsoFills: result.alsoFills,
+          canBeSnack: result.canBeSnack,
+          note: result.note,
+          tags: result.tags,
+        });
+
+        // Update the draft with the new component
+        setDraft((prev) => ({
+          ...prev,
+          [day]: {
+            ...prev[day],
+            snacks: prev[day].snacks.map((s, i) =>
+              i === snackIndex
+                ? {
+                    component_id: savedComponent.id,
+                    name: savedComponent.name,
+                  }
+                : s
+            ),
+          },
+        }));
+      }
+    },
+    [draft, kid, prefs, plan.sessionNotes, regenerate, getAllComponentNames]
   );
 
   const handleFinalize = async () => {
     setSaving(true);
     try {
-      await onFinalize(plan.id, draft);
+      await finalizePlan(plan.id, draft);
       onClose();
     } catch {
       setSaving(false);
-    }
-  };
-
-  const handleSwapClick = (day: string) => {
-    if (!swapSource) {
-      setSwapSource(day);
-    } else if (swapSource === day) {
-      setSwapSource(null);
-    } else {
-      swapDays(swapSource, day);
-      setSwapSource(null);
     }
   };
 
@@ -175,37 +228,29 @@ export default function PlanReviewPane({ plan, kid, prefs, onFinalize, onClose }
             ✕
           </button>
         </div>
-        {swapSource && (
-          <p className="text-[10px] text-white/80 font-fredoka mt-1">
-            Tap another day to swap with {swapSource}
-          </p>
-        )}
         <div className="absolute bottom-0 left-0 right-0 h-3 scallop-wave" />
       </div>
 
       {/* Scrollable day list */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        {draft.map((item) => {
-          const dayColor = DAY_COLORS[item.day] ?? 'bg-luncharoo-blue';
-          const past = isDayPast(plan.weekStartDate, item.day);
-          const dateStr = formatDayDate(plan.weekStartDate, item.day);
-          const totalPrep = totalPrepMinutes(item);
-          const isSwapSelected = swapSource === item.day;
+        {plan.days.map((day) => {
+          const dayColor = DAY_COLORS[day] ?? 'bg-luncharoo-blue';
+          const past = isDayPast(plan.weekStartDate, day);
+          const dateStr = formatDayDate(plan.weekStartDate, day);
+          const dayPlan = draft[day];
+
+          if (!dayPlan) return null;
+
+          const slotCategories = Object.keys(dayPlan.lunchbox) as SlotCategory[];
 
           return (
-            <div key={item.id} className={`mb-4 ${past ? 'opacity-50' : ''}`}>
+            <div key={day} className={`mb-4 ${past ? 'opacity-50' : ''}`}>
               {/* Day header */}
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-2 mb-2">
                 <button
-                  onClick={() => handleSwapClick(item.day)}
-                  title="Tap to swap with another day"
-                  className={`${dayColor} text-white font-fredoka font-bold text-[10px] px-2.5 py-1 rounded-lg border-2 luncharoo-press transition-all ${
-                    isSwapSelected
-                      ? 'border-white ring-2 ring-luncharoo-dark scale-110'
-                      : 'border-luncharoo-dark luncharoo-shadow-sm'
-                  }`}
+                  className={`${dayColor} text-white font-fredoka font-bold text-[10px] px-2.5 py-1 rounded-lg border-2 border-luncharoo-dark luncharoo-shadow-sm`}
                 >
-                  {item.day.slice(0, 3).toUpperCase()}
+                  {day.slice(0, 3).toUpperCase()}
                 </button>
                 <span className="text-[10px] text-slate-400 font-fredoka font-bold">
                   {dateStr}
@@ -216,98 +261,116 @@ export default function PlanReviewPane({ plan, kid, prefs, onFinalize, onClose }
                   </span>
                 )}
                 <div className="flex-1 h-[2px] bg-luncharoo-dark/10 rounded-full" />
-                {totalPrep > 0 && (
-                  <span className="text-[10px] text-slate-400 font-fredoka font-bold flex-shrink-0">
-                    ⏱ {totalPrep}m
-                  </span>
-                )}
-                <button
-                  onClick={() => handleSwapClick(item.day)}
-                  title="Swap day"
-                  className={`text-[10px] font-fredoka font-bold px-1.5 py-0.5 rounded transition-colors flex-shrink-0 ${
-                    isSwapSelected
-                      ? 'bg-luncharoo-blue text-white'
-                      : 'text-luncharoo-dark/30 hover:text-luncharoo-blue'
-                  }`}
-                >
-                  ⇄
-                </button>
               </div>
 
-              {/* Lunches */}
-              {item.lunches.map((dish, idx) => (
-                <DishRow
-                  key={dish.id}
-                  categoryLabel="LUNCH"
-                  dish={dish}
-                  recipes={recipes.main}
-                  onUpdateDish={(d) => updateDish(item.id, 'lunches', idx, d)}
-                  onRemove={() => removeDish(item.id, 'lunches', idx)}
-                  onRegenerate={() => handleRegenerate(item, 'lunches', idx)}
-                  isRegenerating={!!loadingIds[dish.id]}
-                  regenError={errorIds[dish.id]}
-                />
-              ))}
+              {/* Lunchbox slots */}
+              <div className="space-y-1 mb-2 pl-2">
+                {slotCategories.map((category) => {
+                  const slot = dayPlan.lunchbox[category];
+                  if (!slot) return null;
 
-              {/* Sides */}
-              {item.sides.map((dish, idx) => (
-                <DishRow
-                  key={dish.id}
-                  categoryLabel="SIDES"
-                  dish={dish}
-                  recipes={recipes.side}
-                  onUpdateDish={(d) => updateDish(item.id, 'sides', idx, d)}
-                  onRemove={() => removeDish(item.id, 'sides', idx)}
-                  onRegenerate={() => handleRegenerate(item, 'sides', idx)}
-                  isRegenerating={!!loadingIds[dish.id]}
-                  regenError={errorIds[dish.id]}
-                />
-              ))}
+                  const slotKey = `${day}-lunchbox-${category}`;
+                  const isLoading = !!loadingIds[slotKey];
+                  const error = errorIds[slotKey];
 
-              {/* Snacks */}
-              {item.snacks.map((dish, idx) => (
-                <DishRow
-                  key={dish.id}
-                  categoryLabel="SNACKS"
-                  dish={dish}
-                  recipes={recipes.snack}
-                  onUpdateDish={(d) => updateDish(item.id, 'snacks', idx, d)}
-                  onRemove={() => removeDish(item.id, 'snacks', idx)}
-                  onRegenerate={() => handleRegenerate(item, 'snacks', idx)}
-                  isRegenerating={!!loadingIds[dish.id]}
-                  regenError={errorIds[dish.id]}
-                />
-              ))}
-
-              {/* Add buttons */}
-              <div className="flex gap-1.5 mt-1 pl-[52px]">
-                {(['lunches', 'sides', 'snacks'] as const).map((cat) => {
-                  const label = cat === 'lunches' ? '+ Lunch' : cat === 'sides' ? '+ Side' : '+ Snack';
                   return (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        const blank: Dish = {
-                          id: uuidv4(),
-                          name: '',
-                          description: '',
-                          prepNotes: '',
-                          ingredients: [],
-                          isPackaged: false,
-                        };
-                        setDraft((prev) =>
-                          prev.map((i) =>
-                            i.id === item.id ? { ...i, [cat]: [...i[cat], blank] } : i
-                          )
-                        );
-                      }}
-                      className="text-[9px] font-fredoka font-bold text-luncharoo-dark/30 border border-dashed border-luncharoo-dark/15 rounded-md px-1.5 py-0.5 hover:border-luncharoo-blue hover:text-luncharoo-blue transition-colors"
+                    <div
+                      key={slotKey}
+                      className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-beige/60 rounded-lg px-2 py-1.5"
                     >
-                      {label}
-                    </button>
+                      <span className="text-base flex-shrink-0">{SLOT_EMOJI[category]}</span>
+                      <span className="font-bold text-luncharoo-dark min-w-[80px]">
+                        {SLOT_LABELS[category]}
+                      </span>
+                      <span className="flex-1 text-luncharoo-dark/80">{slot.name}</span>
+                      <button
+                        onClick={() => handleFeedback(slot.component_id, 'favorite')}
+                        className={`flex-shrink-0 text-sm luncharoo-press ${
+                          feedback[slot.component_id] === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'
+                        }`}
+                        aria-label="Favorite"
+                      >
+                        {feedback[slot.component_id] === 'favorite' ? '♥' : '♡'}
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(slot.component_id, 'dislike')}
+                        className={`flex-shrink-0 text-sm luncharoo-press ${
+                          feedback[slot.component_id] === 'dislike' ? 'text-slate-500' : 'text-slate-300'
+                        }`}
+                        aria-label="Hide"
+                      >
+                        {feedback[slot.component_id] === 'dislike' ? '⊘' : '○'}
+                      </button>
+                      <button
+                        onClick={() => handleRegenerateSlot(day, category, slotKey)}
+                        disabled={isLoading}
+                        className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
+                      >
+                        {isLoading ? '⏳' : '🔄'}
+                      </button>
+                      {error && (
+                        <span className="text-[9px] text-red-600 flex-shrink-0">
+                          ⚠️
+                        </span>
+                      )}
+                    </div>
                   );
                 })}
               </div>
+
+              {/* Snacks */}
+              {dayPlan.snacks.length > 0 && (
+                <div className="space-y-1 pl-2">
+                  {dayPlan.snacks.map((snack, snackIndex) => {
+                    const slotKey = `${day}-snack-${snackIndex}`;
+                    const isLoading = !!loadingIds[slotKey];
+                    const error = errorIds[slotKey];
+
+                    return (
+                      <div
+                        key={slotKey}
+                        className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-yellow/20 rounded-lg px-2 py-1.5"
+                      >
+                        <span className="text-base flex-shrink-0">🥜</span>
+                        <span className="font-bold text-luncharoo-dark min-w-[80px]">
+                          Snack
+                        </span>
+                        <span className="flex-1 text-luncharoo-dark/80">{snack.name}</span>
+                        <button
+                          onClick={() => handleFeedback(snack.component_id, 'favorite')}
+                          className={`flex-shrink-0 text-sm luncharoo-press ${
+                            feedback[snack.component_id] === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'
+                          }`}
+                          aria-label="Favorite"
+                        >
+                          {feedback[snack.component_id] === 'favorite' ? '♥' : '♡'}
+                        </button>
+                        <button
+                          onClick={() => handleFeedback(snack.component_id, 'dislike')}
+                          className={`flex-shrink-0 text-sm luncharoo-press ${
+                            feedback[snack.component_id] === 'dislike' ? 'text-slate-500' : 'text-slate-300'
+                          }`}
+                          aria-label="Hide"
+                        >
+                          {feedback[snack.component_id] === 'dislike' ? '⊘' : '○'}
+                        </button>
+                        <button
+                          onClick={() => handleRegenerateSnack(day, snackIndex, slotKey)}
+                          disabled={isLoading}
+                          className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
+                        >
+                          {isLoading ? '⏳' : '🔄'}
+                        </button>
+                        {error && (
+                          <span className="text-[9px] text-red-600 flex-shrink-0">
+                            ⚠️
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}

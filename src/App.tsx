@@ -11,19 +11,16 @@ import GroceryTab from './components/GroceryTab';
 import ProfileTab from './components/ProfileTab';
 import WizardOverlay from './components/WizardOverlay';
 import PlanReviewPane from './components/PlanReviewPane';
-import PrepModal from './components/PrepModal';
 import RecipeBrowsePane from './components/RecipeBrowsePane';
 import { getDefaultWeekMonday, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
-import { toggleStep } from './lib/prepSteps';
-import type { LunchItem } from './types';
 import './index.css';
 
-type Tab = 'lunch' | 'grocery' | 'recipes' | 'profile';
+type Tab = 'lunch' | 'grocery' | 'browse' | 'profile';
 
 const TAB_ICONS: Record<Tab, string> = {
   lunch: '🍱',
   grocery: '📋',
-  recipes: '🍴',
+  browse: '🍴',
   profile: '🥷',
 };
 
@@ -42,7 +39,7 @@ function RequireKid({ children }: { children: React.ReactNode }) {
 }
 
 function BentoShell() {
-  const { plans, finalizePlan, setPrepProgress, storageError, backgroundGen, clearBackgroundGenError } = useApp();
+  const { plans, storageError, backgroundGen, clearBackgroundGenError } = useApp();
   const { kid } = useKid();
   const { parentPrefs: prefs } = useParentPrefs();
 
@@ -50,7 +47,6 @@ function BentoShell() {
   const [weekStart, setWeekStart] = useState(getDefaultWeekMonday());
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [prepItem, setPrepItem] = useState<LunchItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const prevActive = useRef(false);
@@ -81,7 +77,7 @@ function BentoShell() {
   const TAB_BTNS: { id: Tab; label: string }[] = [
     { id: 'lunch', label: 'Lunch Plan' },
     { id: 'grocery', label: 'Grocery' },
-    { id: 'recipes', label: 'Recipes' },
+    { id: 'browse', label: 'Browse' },
     { id: 'profile', label: 'Profile' },
   ];
 
@@ -166,9 +162,9 @@ function BentoShell() {
         )}
 
         {/* Tab content — Recipes tab manages its own scroll; others share the padded container */}
-        {activeTab === 'recipes' ? (
+        {activeTab === 'browse' ? (
           <div className="flex-1 min-h-0 z-10">
-            <RecipeBrowsePane weekStart={weekStart} onAddedToPlan={showToast} />
+            <RecipeBrowsePane />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-20 z-10">
@@ -177,7 +173,6 @@ function BentoShell() {
                 plan={activePlan}
                 weekStartDate={weekStart}
                 onEditPlan={() => setReviewOpen(true)}
-                onPrepDay={setPrepItem}
                 onGenerateClick={() => setWizardOpen(true)}
               />
             )}
@@ -224,28 +219,13 @@ function BentoShell() {
         )}
 
         {/* Plan review pane */}
-        {reviewOpen && activePlan && kid && prefs && (
+        {reviewOpen && activePlan && (
           <PlanReviewPane
             plan={activePlan}
-            kid={kid}
-            prefs={prefs}
-            onFinalize={finalizePlan}
             onClose={() => {
               setReviewOpen(false);
               showToast('✅ Plan saved!');
             }}
-          />
-        )}
-
-        {/* Prep modal */}
-        {prepItem && activePlan && (
-          <PrepModal
-            item={prepItem}
-            prepProgress={activePlan.prepProgress}
-            onToggleStep={(dishId, stepIndex) =>
-              setPrepProgress(activePlan.id, toggleStep(activePlan.prepProgress, dishId, stepIndex))
-            }
-            onClose={() => setPrepItem(null)}
           />
         )}
 
