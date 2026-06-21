@@ -1,5 +1,5 @@
 import type { WeeklyPlan, SlotCategory, DayPlan } from '../types';
-import { SLOT_EMOJI } from '../types';
+import { SLOT_EMOJI, SLOT_DISPLAY_ORDER } from '../types';
 import { getTodayDayName, isCurrentWeek } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
 
@@ -49,9 +49,10 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
       return <span className="text-xs text-slate-300 italic">—</span>;
     }
 
-    // Map component_id -> list of slot categories that contain it
+    // Map component_id -> list of slot categories that contain it, in display order
     const componentToSlots = new Map<string, SlotCategory[]>();
-    for (const slotCategory of parentPrefs.lunchboxSlots) {
+    const orderedSlots = SLOT_DISPLAY_ORDER.filter(s => parentPrefs.lunchboxSlots.includes(s));
+    for (const slotCategory of orderedSlots) {
       const slot = dayPlan.lunchbox[slotCategory];
       if (slot) {
         if (!componentToSlots.has(slot.component_id)) {

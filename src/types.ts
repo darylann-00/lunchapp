@@ -18,6 +18,19 @@ export const SLOT_EMOJI: Record<SlotCategory, string> = {
   fun: '🍫',
 };
 
+export type SlotGroup = {
+  label: string;
+  slots: SlotCategory[];
+};
+
+export const SLOT_GROUPS: SlotGroup[] = [
+  { label: 'Main', slots: ['protein', 'carb'] },
+  { label: 'Sides', slots: ['fruit', 'veggie'] },
+  { label: 'Treat', slots: ['fun'] },
+];
+
+export const SLOT_DISPLAY_ORDER: SlotCategory[] = SLOT_GROUPS.flatMap(g => g.slots);
+
 export type Ingredient = {
   name: string;
   qty: string;

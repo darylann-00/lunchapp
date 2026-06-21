@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { WeeklyPlan, DayPlan, SlotCategory, ComponentReaction } from '../types';
-import { SLOT_EMOJI, SLOT_LABELS } from '../types';
+import { SLOT_EMOJI, SLOT_LABELS, SLOT_GROUPS } from '../types';
 import { getDayDate } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
 import { useKid } from '../hooks/useKid';
@@ -241,8 +241,6 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
 
           if (!dayPlan) return null;
 
-          const slotCategories = Object.keys(dayPlan.lunchbox) as SlotCategory[];
-
           return (
             <div key={day} className={`mb-4 ${past ? 'opacity-50' : ''}`}>
               {/* Day header */}
@@ -263,56 +261,68 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                 <div className="flex-1 h-[2px] bg-luncharoo-dark/10 rounded-full" />
               </div>
 
-              {/* Lunchbox slots */}
-              <div className="space-y-1 mb-2 pl-2">
-                {slotCategories.map((category) => {
-                  const slot = dayPlan.lunchbox[category];
-                  if (!slot) return null;
-
-                  const slotKey = `${day}-lunchbox-${category}`;
-                  const isLoading = !!loadingIds[slotKey];
-                  const error = errorIds[slotKey];
+              {/* Lunchbox slots — grouped by Main / Sides / Treat */}
+              <div className="space-y-2 mb-2 pl-2">
+                {SLOT_GROUPS.map((group) => {
+                  const activeSlots = group.slots.filter((cat) => dayPlan.lunchbox[cat]);
+                  if (activeSlots.length === 0) return null;
 
                   return (
-                    <div
-                      key={slotKey}
-                      className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-beige/60 rounded-lg px-2 py-1.5"
-                    >
-                      <span className="text-base flex-shrink-0">{SLOT_EMOJI[category]}</span>
-                      <span className="font-bold text-luncharoo-dark min-w-[80px]">
-                        {SLOT_LABELS[category]}
-                      </span>
-                      <span className="flex-1 text-luncharoo-dark/80">{slot.name}</span>
-                      <button
-                        onClick={() => handleFeedback(slot.component_id, 'favorite')}
-                        className={`flex-shrink-0 text-sm luncharoo-press ${
-                          feedback[slot.component_id] === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'
-                        }`}
-                        aria-label="Favorite"
-                      >
-                        {feedback[slot.component_id] === 'favorite' ? '♥' : '♡'}
-                      </button>
-                      <button
-                        onClick={() => handleFeedback(slot.component_id, 'dislike')}
-                        className={`flex-shrink-0 text-sm luncharoo-press ${
-                          feedback[slot.component_id] === 'dislike' ? 'text-slate-500' : 'text-slate-300'
-                        }`}
-                        aria-label="Hide"
-                      >
-                        {feedback[slot.component_id] === 'dislike' ? '⊘' : '○'}
-                      </button>
-                      <button
-                        onClick={() => handleRegenerateSlot(day, category, slotKey)}
-                        disabled={isLoading}
-                        className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
-                      >
-                        {isLoading ? '⏳' : '🔄'}
-                      </button>
-                      {error && (
-                        <span className="text-[9px] text-red-600 flex-shrink-0">
-                          ⚠️
-                        </span>
-                      )}
+                    <div key={group.label}>
+                      <div className="text-[9px] font-fredoka font-bold text-luncharoo-dark/40 uppercase tracking-wider px-1 mb-0.5">
+                        {group.label}
+                      </div>
+                      <div className="space-y-1">
+                        {activeSlots.map((category) => {
+                          const slot = dayPlan.lunchbox[category]!;
+                          const slotKey = `${day}-lunchbox-${category}`;
+                          const isLoading = !!loadingIds[slotKey];
+                          const error = errorIds[slotKey];
+
+                          return (
+                            <div
+                              key={slotKey}
+                              className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-beige/60 rounded-lg px-2 py-1.5"
+                            >
+                              <span className="text-base flex-shrink-0">{SLOT_EMOJI[category]}</span>
+                              <span className="font-bold text-luncharoo-dark min-w-[68px]">
+                                {SLOT_LABELS[category]}
+                              </span>
+                              <span className="flex-1 text-luncharoo-dark/80">{slot.name}</span>
+                              <button
+                                onClick={() => handleFeedback(slot.component_id, 'favorite')}
+                                className={`flex-shrink-0 text-sm luncharoo-press ${
+                                  feedback[slot.component_id] === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'
+                                }`}
+                                aria-label="Favorite"
+                              >
+                                {feedback[slot.component_id] === 'favorite' ? '♥' : '♡'}
+                              </button>
+                              <button
+                                onClick={() => handleFeedback(slot.component_id, 'dislike')}
+                                className={`flex-shrink-0 text-sm luncharoo-press ${
+                                  feedback[slot.component_id] === 'dislike' ? 'text-slate-500' : 'text-slate-300'
+                                }`}
+                                aria-label="Hide"
+                              >
+                                {feedback[slot.component_id] === 'dislike' ? '⊘' : '○'}
+                              </button>
+                              <button
+                                onClick={() => handleRegenerateSlot(day, category, slotKey)}
+                                disabled={isLoading}
+                                className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
+                              >
+                                {isLoading ? '⏳' : '🔄'}
+                              </button>
+                              {error && (
+                                <span className="text-[9px] text-red-600 flex-shrink-0">
+                                  ⚠️
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
