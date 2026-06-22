@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../context/AppContext';
 import type { Kid, ParentPrefs, SlotCategory } from '../types';
-import { SLOT_LABELS, SLOT_EMOJI } from '../types';
+import { SLOT_LABELS, SLOT_ICON } from '../types';
+import FoodIcon from '../components/FoodIcon';
 
 export const DIETARY_OPTIONS = [
   { id: 'peanut-free', label: 'Peanut-free', allergen: 'peanuts' },
@@ -355,7 +356,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
                       : 'bg-luncharoo-beige/50 text-luncharoo-dark/40 border-luncharoo-dark/20'
                   } ${locked ? 'cursor-default' : ''}`}
                 >
-                  <span>{SLOT_EMOJI[slot]}</span>
+                  <FoodIcon name={SLOT_ICON[slot]} size={16} />
                   <span>{SLOT_LABELS[slot]}</span>
                 </button>
               );
@@ -373,7 +374,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
               : 'bg-luncharoo-beige/50 border-luncharoo-dark/25 text-slate-400'
           }`}
         >
-          <span className="text-lg">{hasThermos ? '🥣' : '➕'}</span>
+          <span className="text-lg">{hasThermos ? <FoodIcon name="miso-soup" size={20} /> : '➕'}</span>
           <span>{hasThermos ? 'Has a thermos!' : 'Add thermos'}</span>
           <span
             className={`ml-auto w-10 h-5 rounded-full border-2 border-luncharoo-dark/30 relative transition-colors ${
@@ -398,7 +399,7 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
               : 'bg-luncharoo-beige/50 border-luncharoo-dark/25 text-slate-400'
           }`}
         >
-          <span className="text-lg">{needsSnacks ? '🍎' : '➕'}</span>
+          <span className="text-lg">{needsSnacks ? <FoodIcon name="apple" size={20} /> : '➕'}</span>
           <span>{needsSnacks ? 'Pack snacks too!' : 'Add snacks'}</span>
           <span
             className={`ml-auto w-10 h-5 rounded-full border-2 border-luncharoo-dark/30 relative transition-colors ${

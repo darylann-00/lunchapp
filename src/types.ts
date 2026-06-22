@@ -10,12 +10,12 @@ export const SLOT_LABELS: Record<SlotCategory, string> = {
   fun: 'Fun Bite',
 };
 
-export const SLOT_EMOJI: Record<SlotCategory, string> = {
-  protein: '🥩',
-  carb: '🍞',
-  fruit: '🍎',
-  veggie: '🥕',
-  fun: '🍫',
+export const SLOT_ICON: Record<SlotCategory, string> = {
+  protein: 'steak',
+  carb: 'bread',
+  fruit: 'apple',
+  veggie: 'carrot',
+  fun: 'chocolate-bar',
 };
 
 export type Ingredient = {

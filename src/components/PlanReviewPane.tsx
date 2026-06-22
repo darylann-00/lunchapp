@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import type { WeeklyPlan, DayPlan, SlotCategory, ComponentReaction } from '../types';
-import { SLOT_EMOJI, SLOT_LABELS } from '../types';
+import { SLOT_ICON, SLOT_LABELS } from '../types';
+import FoodIcon from './FoodIcon';
+import { getFoodIcon } from '../lib/foodIconMap';
 import { getDayDate } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
 import { useKid } from '../hooks/useKid';
@@ -278,7 +280,7 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                       key={slotKey}
                       className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-beige/60 rounded-lg px-2 py-1.5"
                     >
-                      <span className="text-base flex-shrink-0">{SLOT_EMOJI[category]}</span>
+                      <FoodIcon name={getFoodIcon(slot.name) ?? SLOT_ICON[category]} size={18} className="flex-shrink-0" />
                       <span className="font-bold text-luncharoo-dark min-w-[80px]">
                         {SLOT_LABELS[category]}
                       </span>
@@ -331,7 +333,7 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                         key={slotKey}
                         className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-yellow/20 rounded-lg px-2 py-1.5"
                       >
-                        <span className="text-base flex-shrink-0">🥜</span>
+                        <FoodIcon name={getFoodIcon(snack.name) ?? 'apple'} size={18} className="flex-shrink-0" />
                         <span className="font-bold text-luncharoo-dark min-w-[80px]">
                           Snack
                         </span>
