@@ -3,8 +3,32 @@ import { useApp } from '../context/AppContext';
 import { useAI } from '../hooks/useAI';
 import type { GroceryItem } from '../types';
 import { getMondayISO, addWeeks, formatWeekRange } from '../lib/dateUtils';
+import FoodIcon from './FoodIcon';
 
-const CATEGORY_LABELS: Record<GroceryItem['category'], string> = {
+const CATEGORY_ICON: Partial<Record<GroceryItem['category'], string>> = {
+  produce: 'arugula',
+  protein: 'roast-chicken',
+  dairy: 'cheese',
+  grains: 'bread',
+};
+
+const CATEGORY_TEXT: Record<GroceryItem['category'], string> = {
+  produce: 'Produce',
+  protein: 'Protein',
+  dairy: 'Dairy',
+  grains: 'Grains',
+  packaged: 'Packaged',
+  condiments: 'Condiments',
+  other: 'Other',
+};
+
+const CATEGORY_EMOJI: Partial<Record<GroceryItem['category'], string>> = {
+  packaged: '📦',
+  condiments: '🫙',
+  other: '🛒',
+};
+
+const CATEGORY_LABELS_TEXT: Record<GroceryItem['category'], string> = {
   produce: '🥦 Produce',
   protein: '🍗 Protein',
   dairy: '🧀 Dairy',
@@ -62,7 +86,7 @@ export default function GroceryTab({ showToast }: Props) {
       return acc;
     }, {});
     for (const [cat, items] of Object.entries(byCategory)) {
-      text += `[ ${CATEGORY_LABELS[cat as GroceryItem['category']] ?? cat} ]\n`;
+      text += `[ ${CATEGORY_LABELS_TEXT[cat as GroceryItem['category']] ?? cat} ]\n`;
       items.forEach((i) => {
         const done = checked[i.name] ? '✔️' : '[ ]';
         text += `${done} ${i.qty} ${i.unit} ${i.name}\n`;
@@ -177,8 +201,11 @@ export default function GroceryTab({ showToast }: Props) {
                 }, {})
               ).map(([cat, items]) => (
                 <div key={cat}>
-                  <h4 className="font-fredoka text-xs font-bold text-luncharoo-coral mb-1.5">
-                    {CATEGORY_LABELS[cat as GroceryItem['category']] ?? cat}
+                  <h4 className="font-fredoka text-xs font-bold text-luncharoo-coral mb-1.5 flex items-center gap-1">
+                    {CATEGORY_ICON[cat as GroceryItem['category']]
+                      ? <FoodIcon name={CATEGORY_ICON[cat as GroceryItem['category']]!} size={14} />
+                      : CATEGORY_EMOJI[cat as GroceryItem['category']] ?? null}
+                    {CATEGORY_TEXT[cat as GroceryItem['category']] ?? cat}
                   </h4>
                   <div className="space-y-1">
                     {items.map((item) => {

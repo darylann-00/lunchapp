@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { SlotCategory, ComponentReaction } from '../types';
-import { SLOT_LABELS, SLOT_EMOJI } from '../types';
+import { SLOT_LABELS, SLOT_ICON } from '../types';
+import FoodIcon from './FoodIcon';
 import { supabase } from '../lib/supabase';
 import { getComponentsForBrowse, upsertComponentFeedback, type ComponentWithFeedback } from '../lib/components';
 
@@ -31,12 +32,12 @@ function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: Detai
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 ${CATEGORY_COLORS[c.category]}`}>
-                  {SLOT_EMOJI[c.category]} {SLOT_LABELS[c.category]}
+                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 flex items-center gap-1 ${CATEGORY_COLORS[c.category]}`}>
+                  <FoodIcon name={SLOT_ICON[c.category]} size={12} /> {SLOT_LABELS[c.category]}
                 </span>
                 {c.canBeSnack && (
-                  <span className="text-[10px] font-fredoka font-bold text-white/80">
-                    🍿 Snack
+                  <span className="text-[10px] font-fredoka font-bold text-white/80 flex items-center gap-1">
+                    <FoodIcon name="cookie" size={12} /> Snack
                   </span>
                 )}
               </div>
@@ -111,8 +112,8 @@ function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: Detai
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {c.alsoFills.map((cat) => (
-                    <span key={cat} className={`text-[10px] font-fredoka font-bold rounded-lg px-2 py-1 ${CATEGORY_COLORS[cat]}`}>
-                      {SLOT_EMOJI[cat]} {SLOT_LABELS[cat]}
+                    <span key={cat} className={`text-[10px] font-fredoka font-bold rounded-lg px-2 py-1 flex items-center gap-1 ${CATEGORY_COLORS[cat]}`}>
+                      <FoodIcon name={SLOT_ICON[cat]} size={12} /> {SLOT_LABELS[cat]}
                     </span>
                   ))}
                 </div>
@@ -247,7 +248,7 @@ export default function ComponentBrowser() {
                 selectedCategory === cat ? 'bg-luncharoo-dark text-white' : 'bg-luncharoo-beige text-luncharoo-dark/70'
               }`}
             >
-              {cat === 'all' ? 'All' : `${SLOT_EMOJI[cat as SlotCategory]} ${SLOT_LABELS[cat as SlotCategory]}`}
+              {cat === 'all' ? 'All' : <><FoodIcon name={SLOT_ICON[cat as SlotCategory]} size={14} /> {SLOT_LABELS[cat as SlotCategory]}</>}
             </button>
           ))}
         </div>
@@ -269,8 +270,8 @@ export default function ComponentBrowser() {
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-fredoka font-bold text-sm text-luncharoo-dark flex-1">{component.name}</h3>
                 {component.canBeSnack && (
-                  <span className="bg-luncharoo-beige luncharoo-border text-[10px] font-fredoka font-bold text-luncharoo-dark/70 rounded-lg px-2 py-0.5 flex-shrink-0">
-                    🍿 Snack
+                  <span className="bg-luncharoo-beige luncharoo-border text-[10px] font-fredoka font-bold text-luncharoo-dark/70 rounded-lg px-2 py-0.5 flex-shrink-0 flex items-center gap-1">
+                    <FoodIcon name="cookie" size={12} /> Snack
                   </span>
                 )}
               </div>
@@ -284,8 +285,8 @@ export default function ComponentBrowser() {
               ) : null}
 
               <div className="flex items-center justify-between gap-2 pt-1">
-                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 ${CATEGORY_COLORS[component.category]}`}>
-                  {SLOT_EMOJI[component.category]} {SLOT_LABELS[component.category]}
+                <span className={`text-[9px] font-fredoka font-bold uppercase tracking-wider rounded-md px-1.5 py-0.5 flex items-center gap-1 ${CATEGORY_COLORS[component.category]}`}>
+                  <FoodIcon name={SLOT_ICON[component.category]} size={12} /> {SLOT_LABELS[component.category]}
                 </span>
                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Kid, ParentPrefs } from '../types';
-import { SLOT_LABELS, SLOT_EMOJI } from '../types';
+import { SLOT_LABELS, SLOT_ICON } from '../types';
+import FoodIcon from './FoodIcon';
 import Onboarding, { DIETARY_OPTIONS } from '../pages/Onboarding';
 
 type Props = {
@@ -159,7 +160,7 @@ export default function ProfileTab({ kid, prefs, onSaved }: Props) {
                     key={slot}
                     className="bg-luncharoo-dark text-white text-xs font-fredoka font-bold px-2.5 py-1 rounded-lg"
                   >
-                    {SLOT_EMOJI[slot]} {SLOT_LABELS[slot]}
+                    <FoodIcon name={SLOT_ICON[slot]} size={14} /> {SLOT_LABELS[slot]}
                   </span>
                 ))}
               </div>
@@ -181,7 +182,7 @@ export default function ProfileTab({ kid, prefs, onSaved }: Props) {
                 />
               </span>
               <span className="text-xs font-fredoka font-semibold text-luncharoo-dark/70">
-                {prefs?.hasThermos ? '🥣 Thermos' : 'No thermos'}
+                {prefs?.hasThermos ? <><FoodIcon name="miso-soup" size={14} /> Thermos</> : 'No thermos'}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -197,7 +198,7 @@ export default function ProfileTab({ kid, prefs, onSaved }: Props) {
                 />
               </span>
               <span className="text-xs font-fredoka font-semibold text-luncharoo-dark/70">
-                {kid.needsSnacks ? '🍎 Snacks' : 'No snacks'}
+                {kid.needsSnacks ? <><FoodIcon name="apple" size={14} /> Snacks</> : 'No snacks'}
               </span>
             </div>
           </div>

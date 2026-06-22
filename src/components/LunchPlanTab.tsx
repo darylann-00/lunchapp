@@ -1,7 +1,9 @@
 import type { WeeklyPlan, SlotCategory, DayPlan } from '../types';
-import { SLOT_EMOJI } from '../types';
+import { SLOT_ICON } from '../types';
 import { getTodayDayName, isCurrentWeek } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
+import FoodIcon from './FoodIcon';
+import { getFoodIcon } from '../lib/foodIconMap';
 
 const DAY_THEMES: Record<string, { badge: string; rowToday: string }> = {
   Monday:    { badge: 'bg-luncharoo-coral',   rowToday: 'bg-luncharoo-coral/10 border-l-4 border-l-luncharoo-coral' },
@@ -26,7 +28,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
   if (!plan) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
-        <span className="text-5xl">🍱</span>
+        <FoodIcon name="sandwich" size={48} />
         <div className="text-center">
           <p className="font-fredoka text-base font-bold text-luncharoo-dark">No plan for this week</p>
           <p className="text-sm text-slate-500 mt-1">Tap the button below to generate one with Luncharoo</p>
@@ -72,12 +74,12 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
           if (!slot) return null;
 
           // Build emoji + label string from slot categories
-          const emojis = slotCategories.map((cat) => SLOT_EMOJI[cat]).join('');
-
           return (
             <div key={componentId} className="flex items-start gap-2">
-              <span className="font-fredoka text-sm font-bold text-luncharoo-dark flex-shrink-0">
-                {emojis}
+              <span className="flex-shrink-0 flex items-center gap-0.5">
+                {slotCategories.map((cat) => (
+                  <FoodIcon key={cat} name={SLOT_ICON[cat]} size={16} />
+                ))}
               </span>
               <span className="font-fredoka text-sm font-bold text-luncharoo-dark">
                 {slot.name}
@@ -101,8 +103,9 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
             key={snack.component_id}
             className="bg-luncharoo-beige/50 rounded-lg p-2 border border-luncharoo-dark/20"
           >
-            <span className="font-fredoka text-sm font-semibold text-luncharoo-dark block">
-              🍎 {snack.name}
+            <span className="font-fredoka text-sm font-semibold text-luncharoo-dark block flex items-center gap-1.5">
+              <FoodIcon name={getFoodIcon(snack.name) ?? 'apple'} size={16} />
+              {snack.name}
             </span>
           </div>
         ))}
@@ -142,8 +145,8 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
           <thead>
             <tr className="bg-luncharoo-blue text-white font-fredoka text-xs tracking-wider border-b-[3px] border-luncharoo-dark select-none">
               <th className="p-2 border-r-[3px] border-luncharoo-dark w-[22%] text-center font-bold">DAY</th>
-              <th className="p-2 border-r-[3px] border-luncharoo-dark w-[39%] text-left font-bold">🍱 MAIN LUNCH</th>
-              <th className="p-2 w-[39%] text-left font-bold">🍎 SNACKS</th>
+              <th className="p-2 border-r-[3px] border-luncharoo-dark w-[39%] text-left font-bold"><FoodIcon name="sandwich" size={14} className="mr-1" /> MAIN LUNCH</th>
+              <th className="p-2 w-[39%] text-left font-bold"><FoodIcon name="apple" size={14} className="mr-1" /> SNACKS</th>
             </tr>
           </thead>
           <tbody>

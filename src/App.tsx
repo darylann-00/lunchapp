@@ -13,15 +13,16 @@ import WizardOverlay from './components/WizardOverlay';
 import PlanReviewPane from './components/PlanReviewPane';
 import RecipeBrowsePane from './components/RecipeBrowsePane';
 import { getDefaultWeekMonday, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
+import FoodIcon from './components/FoodIcon';
 import './index.css';
 
 type Tab = 'lunch' | 'grocery' | 'browse' | 'profile';
 
-const TAB_ICONS: Record<Tab, string> = {
-  lunch: '🍱',
-  grocery: '📋',
-  browse: '🍴',
-  profile: '🥷',
+const TAB_ICONS: Record<Tab, React.ReactNode> = {
+  lunch: <FoodIcon name="sandwich" size={20} />,
+  grocery: <span>📋</span>,
+  browse: <span>🍴</span>,
+  profile: <span>🥷</span>,
 };
 
 function RequireAuth({ children }: { children: React.ReactNode }) {

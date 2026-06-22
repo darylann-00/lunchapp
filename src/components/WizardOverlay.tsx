@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { Kid, ParentPrefs, ParsedSession } from '../types';
 import { useApp } from '../context/AppContext';
+import FoodIcon from './FoodIcon';
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -144,18 +145,19 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
             <p className="text-[10px] font-bold text-slate-400 mb-1.5">💡 QUICK ADDS:</p>
             <div className="flex flex-wrap gap-1">
               {[
-                ['🥜 Nut-Free', 'Nut-free week — no nuts of any kind'],
-                ['🍝 Leftovers', 'Use leftover pasta on one day'],
-                ['⚡ No-Cook', 'Keep everything no-cook, simple assembly only'],
-              ].map(([label, preset]) => (
+                ['pretzel', 'Nut-Free', 'Nut-free week — no nuts of any kind'],
+                ['spaghetti', 'Leftovers', 'Use leftover pasta on one day'],
+                ['', '⚡ No-Cook', 'Keep everything no-cook, simple assembly only'],
+              ].map(([icon, label, preset]) => (
                 <button
                   key={label}
                   onClick={() => {
                     appendMessage('user', preset);
                     setNotes((prev) => (prev ? `${prev}\n${preset}` : preset));
                   }}
-                  className="bg-white luncharoo-border font-fredoka text-xs px-2 py-1 rounded-full luncharoo-shadow-sm luncharoo-press hover:bg-luncharoo-yellow/20"
+                  className="bg-white luncharoo-border font-fredoka text-xs px-2 py-1 rounded-full luncharoo-shadow-sm luncharoo-press hover:bg-luncharoo-yellow/20 flex items-center gap-1"
                 >
+                  {icon ? <FoodIcon name={icon} size={14} /> : null}
                   {label}
                 </button>
               ))}
@@ -195,7 +197,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
 
       {/* Footer */}
       <div className="py-2 bg-luncharoo-beige border-t border-slate-200 text-center text-[10px] font-fredoka font-bold text-luncharoo-blue select-none">
-        🧁 POWERED BY BENTOBOT
+        <FoodIcon name="cupcake" size={14} /> POWERED BY BENTOBOT
       </div>
     </div>
   );
