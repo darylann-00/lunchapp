@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import type { Kid, ParentPrefs, SlotCategory } from '../types';
 import { SLOT_LABELS, SLOT_ICON } from '../types';
 import FoodIcon from '../components/FoodIcon';
+import UiIcon from '../components/UiIcon';
 
 export const DIETARY_OPTIONS = [
   { id: 'peanut-free', label: 'Peanut-free', allergen: 'peanuts' },
@@ -200,8 +201,8 @@ export default function Onboarding({ prefillKid, prefillPrefs, onSaved, compact 
       <div className="bg-white rounded-2xl luncharoo-border luncharoo-shadow p-4 flex flex-col gap-4">
         {/* Avatar + name row */}
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-luncharoo-blue/25 luncharoo-border flex-shrink-0 flex items-center justify-center text-2xl select-none">
-            🧒
+          <div className="w-14 h-14 rounded-full bg-luncharoo-blue/25 luncharoo-border flex-shrink-0 flex items-center justify-center select-none">
+            <UiIcon name="kid" size={34} />
           </div>
           <div className="flex-1">
             <label className="block text-xs font-fredoka font-bold text-luncharoo-dark mb-1">

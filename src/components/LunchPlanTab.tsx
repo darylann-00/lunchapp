@@ -3,6 +3,7 @@ import { SLOT_ICON } from '../types';
 import { getTodayDayName, isCurrentWeek } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
 import FoodIcon from './FoodIcon';
+import UiIcon from './UiIcon';
 import { getFoodIcon } from '../lib/foodIconMap';
 
 const DAY_THEMES: Record<string, { badge: string; rowToday: string }> = {
@@ -37,7 +38,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
           onClick={onGenerateClick}
           className="bg-luncharoo-yellow text-luncharoo-dark font-fredoka font-bold text-sm px-6 py-3 rounded-2xl luncharoo-border luncharoo-shadow luncharoo-press"
         >
-          ✨ Generate This Week
+          <UiIcon name="sparkle" size={16} className="mr-1" /> Generate This Week
         </button>
       </div>
     );
@@ -138,7 +139,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
             onClick={onEditPlan}
             className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 luncharoo-border rounded-xl luncharoo-shadow-sm luncharoo-press flex items-center justify-center text-sm hover:bg-luncharoo-blue/10"
           >
-            ✏️
+            <UiIcon name="edit" size={16} />
           </button>
         )}
         <table className="w-full border-collapse table-fixed">
@@ -191,7 +192,7 @@ export default function LunchPlanTab({ plan, weekStartDate, onEditPlan, onGenera
         onClick={onGenerateClick}
         className="w-full bg-luncharoo-yellow text-luncharoo-dark font-fredoka font-bold text-sm py-3 rounded-2xl luncharoo-border luncharoo-shadow luncharoo-press flex items-center justify-center gap-2"
       >
-        <span>✨</span><span>Regenerate Week</span>
+        <UiIcon name="sparkle" size={16} /><span>Regenerate Week</span>
       </button>
     </div>
   );

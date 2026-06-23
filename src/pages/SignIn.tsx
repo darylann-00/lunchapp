@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import UiIcon from '../components/UiIcon';
 
 export default function SignIn() {
   const { session, loading, signInWithGoogle, signInWithEmail, signInWithPassword } = useAuth();
@@ -46,14 +47,14 @@ export default function SignIn() {
           disabled={busy}
           className="w-full bg-white luncharoo-border rounded-xl py-3 font-fredoka font-bold text-sm text-luncharoo-dark luncharoo-press flex items-center justify-center gap-2 disabled:opacity-50 mb-4"
         >
-          <span>🔐</span> Continue with Google
+          <UiIcon name="lock" size={18} /> Continue with Google
         </button>
 
         <div className="text-center text-[10px] font-fredoka text-luncharoo-dark/50 my-3">or</div>
 
         {sent ? (
           <p className="text-center text-xs font-fredoka text-luncharoo-dark bg-white/60 rounded-xl p-3">
-            ✉️ Check <strong>{email}</strong> for a sign-in link.
+            <UiIcon name="mail" size={14} className="mr-1" /> Check <strong>{email}</strong> for a sign-in link.
           </p>
         ) : (
           <form onSubmit={handleEmail} className="space-y-2">

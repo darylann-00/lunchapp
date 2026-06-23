@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { SlotCategory, ComponentReaction } from '../types';
 import { SLOT_LABELS, SLOT_ICON } from '../types';
 import FoodIcon from './FoodIcon';
+import UiIcon from './UiIcon';
 import { supabase } from '../lib/supabase';
 import { getComponentsForBrowse, upsertComponentFeedback, type ComponentWithFeedback } from '../lib/components';
 
@@ -89,7 +90,7 @@ function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: Detai
             {c.ingredients.length > 0 && (
               <div className="bg-luncharoo-beige/50 border border-luncharoo-dark/15 rounded-xl p-2.5">
                 <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider mb-1.5">
-                  🧺 Ingredients
+                  <UiIcon name="basket" size={12} className="mr-1" /> Ingredients
                 </p>
                 <ul className="space-y-1">
                   {c.ingredients.map((ing, i) => (
@@ -108,7 +109,7 @@ function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: Detai
             {c.alsoFills && c.alsoFills.length > 0 && (
               <div className="bg-luncharoo-beige/50 border border-luncharoo-dark/15 rounded-xl p-2.5">
                 <p className="text-[10px] font-semibold text-luncharoo-dark/60 uppercase tracking-wider mb-1.5">
-                  ♻️ Also fills
+                  <UiIcon name="layers" size={12} className="mr-1" /> Also fills
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {c.alsoFills.map((cat) => (
@@ -137,7 +138,7 @@ function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: Detai
               c.reaction === 'favorite' ? 'bg-luncharoo-coral text-white' : 'bg-white text-luncharoo-dark/70'
             }`}
           >
-            {c.reaction === 'favorite' ? '♥' : '♡'} Favorite
+            <UiIcon name={c.reaction === 'favorite' ? 'heart' : 'heart-o'} size={16} /> Favorite
           </button>
           <button
             onClick={() => onToggleFeedback(c.id, c.reaction, 'dislike')}
@@ -145,7 +146,7 @@ function ComponentDetailModal({ component: c, onClose, onToggleFeedback }: Detai
               c.reaction === 'dislike' ? 'bg-slate-200 text-slate-600' : 'bg-white text-luncharoo-dark/70'
             }`}
           >
-            {c.reaction === 'dislike' ? '⊘ Unhide' : '○ Hide'}
+            <UiIcon name={c.reaction === 'dislike' ? 'yuk' : 'yuk-o'} size={16} /> {c.reaction === 'dislike' ? 'Unhide' : 'Hide'}
           </button>
         </div>
       </div>
@@ -221,7 +222,7 @@ export default function ComponentBrowser() {
   if (error) {
     return (
       <div className="h-full flex items-center justify-center px-4">
-        <p className="text-sm text-luncharoo-dark text-center font-fredoka font-bold">⚠️ {error}</p>
+        <p className="text-sm text-luncharoo-dark text-center font-fredoka font-bold"><UiIcon name="warning" size={16} className="mr-1" /> {error}</p>
       </div>
     );
   }
@@ -294,14 +295,14 @@ export default function ComponentBrowser() {
                     className={`text-lg luncharoo-press transition-colors ${component.reaction === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'}`}
                     aria-label={component.reaction === 'favorite' ? 'Remove favorite' : 'Add favorite'}
                   >
-                    {component.reaction === 'favorite' ? '♥' : '♡'}
+                    <UiIcon name={component.reaction === 'favorite' ? 'heart' : 'heart-o'} size={18} />
                   </button>
                   <button
                     onClick={() => handleToggleFeedback(component.id, component.reaction, 'dislike')}
                     className={`text-lg luncharoo-press transition-colors ${component.reaction === 'dislike' ? 'text-slate-400' : 'text-slate-300'}`}
                     aria-label={component.reaction === 'dislike' ? 'Show component' : 'Hide component'}
                   >
-                    {component.reaction === 'dislike' ? '⊘' : '○'}
+                    <UiIcon name={component.reaction === 'dislike' ? 'yuk' : 'yuk-o'} size={18} />
                   </button>
                 </div>
               </div>

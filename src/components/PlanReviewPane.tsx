@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type { WeeklyPlan, DayPlan, SlotCategory, ComponentReaction } from '../types';
 import { SLOT_ICON, SLOT_LABELS } from '../types';
 import FoodIcon from './FoodIcon';
+import UiIcon from './UiIcon';
 import { getFoodIcon } from '../lib/foodIconMap';
 import { getDayDate } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
@@ -218,7 +219,7 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
       <div className="bg-luncharoo-blue luncharoo-border-b relative pt-3 pb-5 px-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{isNewPlan ? '✨' : '✏️'}</span>
+            <span className="text-lg">{isNewPlan ? <UiIcon name="sparkle" size={18} /> : <UiIcon name="edit" size={18} />}</span>
             <h2 className="font-fredoka text-sm text-white font-bold drop-shadow-[1px_1px_0px_#134e9e]">
               {isNewPlan ? 'Review Your Plan' : 'Edit Plan'}
             </h2>
@@ -292,7 +293,7 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                         }`}
                         aria-label="Favorite"
                       >
-                        {feedback[slot.component_id] === 'favorite' ? '♥' : '♡'}
+                        <UiIcon name={feedback[slot.component_id] === 'favorite' ? 'heart' : 'heart-o'} size={16} />
                       </button>
                       <button
                         onClick={() => handleFeedback(slot.component_id, 'dislike')}
@@ -301,18 +302,18 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                         }`}
                         aria-label="Hide"
                       >
-                        {feedback[slot.component_id] === 'dislike' ? '⊘' : '○'}
+                        <UiIcon name={feedback[slot.component_id] === 'dislike' ? 'yuk' : 'yuk-o'} size={16} />
                       </button>
                       <button
                         onClick={() => handleRegenerateSlot(day, category, slotKey)}
                         disabled={isLoading}
                         className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
                       >
-                        {isLoading ? '⏳' : '🔄'}
+                        {isLoading ? '⏳' : <UiIcon name="refresh" size={14} />}
                       </button>
                       {error && (
                         <span className="text-[9px] text-red-600 flex-shrink-0">
-                          ⚠️
+                          <UiIcon name="warning" size={12} />
                         </span>
                       )}
                     </div>
@@ -345,7 +346,7 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                           }`}
                           aria-label="Favorite"
                         >
-                          {feedback[snack.component_id] === 'favorite' ? '♥' : '♡'}
+                          <UiIcon name={feedback[snack.component_id] === 'favorite' ? 'heart' : 'heart-o'} size={16} />
                         </button>
                         <button
                           onClick={() => handleFeedback(snack.component_id, 'dislike')}
@@ -354,18 +355,18 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
                           }`}
                           aria-label="Hide"
                         >
-                          {feedback[snack.component_id] === 'dislike' ? '⊘' : '○'}
+                          <UiIcon name={feedback[snack.component_id] === 'dislike' ? 'yuk' : 'yuk-o'} size={16} />
                         </button>
                         <button
                           onClick={() => handleRegenerateSnack(day, snackIndex, slotKey)}
                           disabled={isLoading}
                           className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
                         >
-                          {isLoading ? '⏳' : '🔄'}
+                          {isLoading ? '⏳' : <UiIcon name="refresh" size={14} />}
                         </button>
                         {error && (
                           <span className="text-[9px] text-red-600 flex-shrink-0">
-                            ⚠️
+                            <UiIcon name="warning" size={12} />
                           </span>
                         )}
                       </div>
@@ -388,8 +389,8 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
           {saving
             ? '⏳ Saving…'
             : isNewPlan
-              ? '✅ Approve Plan'
-              : '💾 Save Changes'}
+              ? <><UiIcon name="check" size={16} className="mr-1" /> Approve Plan</>
+              : <><UiIcon name="save" size={16} className="mr-1" /> Save Changes</>}
         </button>
       </div>
     </div>

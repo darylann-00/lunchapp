@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Kid, ParentPrefs } from '../types';
 import { SLOT_LABELS, SLOT_ICON } from '../types';
 import FoodIcon from './FoodIcon';
+import UiIcon from './UiIcon';
 import Onboarding, { DIETARY_OPTIONS } from '../pages/Onboarding';
 
 type Props = {
@@ -83,15 +84,15 @@ export default function ProfileTab({ kid, prefs, onSaved }: Props) {
     <div className="flex flex-col gap-3">
       {savedFlash && (
         <div className="bg-green-50 luncharoo-border border-green-400 rounded-2xl px-4 py-2.5 text-xs font-fredoka font-bold text-green-700 flex items-center gap-2">
-          ✅ Profile saved!
+          <UiIcon name="check" size={16} /> Profile saved!
         </div>
       )}
 
       {/* Header card */}
       <div className="bg-white luncharoo-border rounded-2xl luncharoo-shadow overflow-hidden">
         <div className="bg-luncharoo-blue/20 px-4 py-4 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-luncharoo-blue/30 luncharoo-border flex-shrink-0 flex items-center justify-center text-2xl select-none">
-            🧒
+          <div className="w-12 h-12 rounded-full bg-luncharoo-blue/30 luncharoo-border flex-shrink-0 flex items-center justify-center select-none">
+            <UiIcon name="kid" size={30} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-fredoka text-lg font-bold text-luncharoo-dark leading-tight truncate">

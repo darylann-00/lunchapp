@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import type { Kid, ParentPrefs, ParsedSession } from '../types';
 import { useApp } from '../context/AppContext';
 import FoodIcon from './FoodIcon';
+import UiIcon from './UiIcon';
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -26,7 +27,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
   const [selectedDays, setSelectedDays] = useState<string[]>([...ALL_DAYS]);
   const [notes, setNotes] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'bot', text: `Hi! I'm Luncharoo 🤖 Tell me anything special about this week — leftovers to use, days to skip, or specific requests. Or just hit Generate!` },
+    { role: 'bot', text: `Hi! I'm Luncharoo! Tell me anything special about this week — leftovers to use, days to skip, or specific requests. Or just hit Generate!` },
   ]);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -79,7 +80,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
       <div className="bg-luncharoo-blue luncharoo-border-b relative pt-3 pb-5 px-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🪄</span>
+            <UiIcon name="wand" size={22} />
             <h2 className="font-fredoka text-base text-white font-bold drop-shadow-[1px_1px_0px_#134e9e]">
               Luncharoo Wizard
             </h2>
@@ -129,7 +130,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
                     msg.role === 'bot' ? 'bg-luncharoo-yellow' : 'bg-luncharoo-blue'
                   }`}
                 >
-                  {msg.role === 'bot' ? '🤖' : '👩'}
+                  {msg.role === 'bot' ? <UiIcon name="robot" size={16} /> : <UiIcon name="parent" size={16} />}
                 </div>
                 <div
                   className={`bg-white luncharoo-border rounded-xl ${msg.role === 'bot' ? 'rounded-tl-none' : 'rounded-tr-none'} px-3 py-2 text-xs text-slate-700 leading-relaxed`}
@@ -142,12 +143,12 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
 
           {/* Quick stickers */}
           <div>
-            <p className="text-[10px] font-bold text-slate-400 mb-1.5">💡 QUICK ADDS:</p>
+            <p className="text-[10px] font-bold text-slate-400 mb-1.5"><UiIcon name="bulb" size={12} className="mr-1" />QUICK ADDS:</p>
             <div className="flex flex-wrap gap-1">
               {[
                 ['pretzel', 'Nut-Free', 'Nut-free week — no nuts of any kind'],
                 ['spaghetti', 'Leftovers', 'Use leftover pasta on one day'],
-                ['', '⚡ No-Cook', 'Keep everything no-cook, simple assembly only'],
+                ['ui:bolt', 'No-Cook', 'Keep everything no-cook, simple assembly only'],
               ].map(([icon, label, preset]) => (
                 <button
                   key={label}
@@ -157,7 +158,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
                   }}
                   className="bg-white luncharoo-border font-fredoka text-xs px-2 py-1 rounded-full luncharoo-shadow-sm luncharoo-press hover:bg-luncharoo-yellow/20 flex items-center gap-1"
                 >
-                  {icon ? <FoodIcon name={icon} size={14} /> : null}
+                  {icon ? (icon.startsWith('ui:') ? <UiIcon name={icon.slice(3)} size={14} /> : <FoodIcon name={icon} size={14} />) : null}
                   {label}
                 </button>
               ))}
@@ -187,7 +188,7 @@ export default function WizardOverlay({ weekStartDate, kid, prefs, onClose }: Pr
           disabled={backgroundGen.active || selectedDays.length === 0}
           className="w-full bg-luncharoo-yellow text-luncharoo-dark font-fredoka font-bold text-sm py-3 rounded-xl luncharoo-border luncharoo-shadow luncharoo-press disabled:opacity-50"
         >
-          ✨ Generate Plan
+          <UiIcon name="sparkle" size={16} className="mr-1" /> Generate Plan
         </button>
 
         {backgroundGen.active && (
