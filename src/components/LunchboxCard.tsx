@@ -235,7 +235,7 @@ export default function LunchboxCard({
 
   return (
     <div
-      className={`bg-white luncharoo-border rounded-[20px] overflow-hidden ${cardBorder} ${
+      className={`bg-white luncharoo-border rounded-[20px] overflow-hidden shrink-0 ${cardBorder} ${
         isPast ? 'opacity-45' : ''
       }`}
     >
