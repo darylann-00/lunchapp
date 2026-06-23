@@ -256,7 +256,7 @@ export default function LunchboxCard({
       </div>
 
       {/* Lunchbox grid — 2 columns read-only, single column in edit mode */}
-      <div className={`grid ${editable ? 'grid-cols-1' : 'grid-cols-2'}`}>
+      <div className={editable ? 'flex flex-col' : 'grid grid-cols-2'}>
         {/* Main items */}
         {mainItems.map((item) => {
           const slotKey = `${day}-lunchbox-${item.slotCategories[0]}`;
