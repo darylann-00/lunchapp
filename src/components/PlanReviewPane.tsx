@@ -1,32 +1,14 @@
 import { useState, useCallback } from 'react';
 import type { WeeklyPlan, DayPlan, SlotCategory, ComponentReaction } from '../types';
-import { SLOT_ICON, SLOT_LABELS } from '../types';
-import FoodIcon from './FoodIcon';
 import UiIcon from './UiIcon';
-import { getFoodIcon } from '../lib/foodIconMap';
-import { getDayDate } from '../lib/dateUtils';
 import { useApp } from '../context/AppContext';
 import { useKid } from '../hooks/useKid';
 import { useParentPrefs } from '../hooks/useParentPrefs';
 import { useSlotRegenerate } from '../hooks/useAI';
 import { saveAIComponent, upsertComponentFeedback } from '../lib/components';
 import { supabase } from '../lib/supabase';
-
-const DAY_COLORS: Record<string, string> = {
-  Monday: 'bg-luncharoo-coral',
-  Tuesday: 'bg-luncharoo-peach',
-  Wednesday: 'bg-luncharoo-yellow',
-  Thursday: 'bg-luncharoo-blue',
-  Friday: 'bg-emerald-500',
-};
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatDayDate(mondayISO: string, dayName: string): string {
-  const iso = getDayDate(mondayISO, dayName);
-  const d = new Date(iso + 'T12:00:00');
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-}
+import { getDayDate } from '../lib/dateUtils';
+import LunchboxCard from './LunchboxCard';
 
 function isDayPast(mondayISO: string, dayName: string): boolean {
   const iso = getDayDate(mondayISO, dayName);
@@ -70,7 +52,6 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
     [feedback],
   );
 
-  // Collect all component names in the plan for regeneration context
   const getAllComponentNames = useCallback((): string[] => {
     const names: string[] = [];
     Object.values(draft).forEach((dayPlan) => {
@@ -112,7 +93,6 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
       });
 
       if (result) {
-        // Save the new component to DB
         const { data: user } = await supabase.auth.getUser();
         if (!user.user?.id) throw new Error('Not authenticated');
 
@@ -126,7 +106,6 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
           tags: result.tags,
         });
 
-        // Update the draft with the new component
         setDraft((prev) => ({
           ...prev,
           [day]: {
@@ -167,7 +146,6 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
       });
 
       if (result) {
-        // Save the new component to DB
         const { data: user } = await supabase.auth.getUser();
         if (!user.user?.id) throw new Error('Not authenticated');
 
@@ -181,17 +159,13 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
           tags: result.tags,
         });
 
-        // Update the draft with the new component
         setDraft((prev) => ({
           ...prev,
           [day]: {
             ...prev[day],
             snacks: prev[day].snacks.map((s, i) =>
               i === snackIndex
-                ? {
-                    component_id: savedComponent.id,
-                    name: savedComponent.name,
-                  }
+                ? { component_id: savedComponent.id, name: savedComponent.name }
                 : s
             ),
           },
@@ -199,6 +173,25 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
       }
     },
     [draft, kid, prefs, plan.sessionNotes, regenerate, getAllComponentNames]
+  );
+
+  const handleRenameSlot = useCallback(
+    (day: string, category: SlotCategory, newName: string) => {
+      setDraft((prev) => ({
+        ...prev,
+        [day]: {
+          ...prev[day],
+          lunchbox: {
+            ...prev[day].lunchbox,
+            [category]: {
+              ...prev[day].lunchbox[category]!,
+              name: newName,
+            },
+          },
+        },
+      }));
+    },
+    [],
   );
 
   const handleFinalize = async () => {
@@ -212,6 +205,7 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
   };
 
   const isNewPlan = plan.status === 'draft';
+  const activeSlots = prefs?.lunchboxSlots ?? [];
 
   return (
     <div className="absolute inset-0 z-40 bg-white flex flex-col">
@@ -235,146 +229,30 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
       </div>
 
       {/* Scrollable day list */}
-      <div className="flex-1 overflow-y-auto px-3 py-3">
+      <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2.5">
         {plan.days.map((day) => {
-          const dayColor = DAY_COLORS[day] ?? 'bg-luncharoo-blue';
-          const past = isDayPast(plan.weekStartDate, day);
-          const dateStr = formatDayDate(plan.weekStartDate, day);
           const dayPlan = draft[day];
-
           if (!dayPlan) return null;
 
-          const slotCategories = Object.keys(dayPlan.lunchbox) as SlotCategory[];
+          const past = isDayPast(plan.weekStartDate, day);
 
           return (
-            <div key={day} className={`mb-4 ${past ? 'opacity-50' : ''}`}>
-              {/* Day header */}
-              <div className="flex items-center gap-2 mb-2">
-                <button
-                  className={`${dayColor} text-white font-fredoka font-bold text-[10px] px-2.5 py-1 rounded-lg border-2 border-luncharoo-dark luncharoo-shadow-sm`}
-                >
-                  {day.slice(0, 3).toUpperCase()}
-                </button>
-                <span className="text-[10px] text-slate-400 font-fredoka font-bold">
-                  {dateStr}
-                </span>
-                {past && (
-                  <span className="text-[9px] bg-slate-200 text-slate-500 font-fredoka font-bold px-1.5 py-0.5 rounded">
-                    PAST
-                  </span>
-                )}
-                <div className="flex-1 h-[2px] bg-luncharoo-dark/10 rounded-full" />
-              </div>
-
-              {/* Lunchbox slots */}
-              <div className="space-y-1 mb-2 pl-2">
-                {slotCategories.map((category) => {
-                  const slot = dayPlan.lunchbox[category];
-                  if (!slot) return null;
-
-                  const slotKey = `${day}-lunchbox-${category}`;
-                  const isLoading = !!loadingIds[slotKey];
-                  const error = errorIds[slotKey];
-
-                  return (
-                    <div
-                      key={slotKey}
-                      className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-beige/60 rounded-lg px-2 py-1.5"
-                    >
-                      <FoodIcon name={getFoodIcon(slot.name) ?? SLOT_ICON[category]} size={18} className="flex-shrink-0" />
-                      <span className="font-bold text-luncharoo-dark min-w-[80px]">
-                        {SLOT_LABELS[category]}
-                      </span>
-                      <span className="flex-1 text-luncharoo-dark/80">{slot.name}</span>
-                      <button
-                        onClick={() => handleFeedback(slot.component_id, 'favorite')}
-                        className={`flex-shrink-0 text-sm luncharoo-press ${
-                          feedback[slot.component_id] === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'
-                        }`}
-                        aria-label="Favorite"
-                      >
-                        <UiIcon name={feedback[slot.component_id] === 'favorite' ? 'heart' : 'heart-o'} size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleFeedback(slot.component_id, 'dislike')}
-                        className={`flex-shrink-0 text-sm luncharoo-press ${
-                          feedback[slot.component_id] === 'dislike' ? 'text-slate-500' : 'text-slate-300'
-                        }`}
-                        aria-label="Hide"
-                      >
-                        <UiIcon name={feedback[slot.component_id] === 'dislike' ? 'yuk' : 'yuk-o'} size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleRegenerateSlot(day, category, slotKey)}
-                        disabled={isLoading}
-                        className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
-                      >
-                        {isLoading ? '⏳' : <UiIcon name="refresh" size={14} />}
-                      </button>
-                      {error && (
-                        <span className="text-[9px] text-red-600 flex-shrink-0">
-                          <UiIcon name="warning" size={12} />
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Snacks */}
-              {dayPlan.snacks.length > 0 && (
-                <div className="space-y-1 pl-2">
-                  {dayPlan.snacks.map((snack, snackIndex) => {
-                    const slotKey = `${day}-snack-${snackIndex}`;
-                    const isLoading = !!loadingIds[slotKey];
-                    const error = errorIds[slotKey];
-
-                    return (
-                      <div
-                        key={slotKey}
-                        className="flex items-center gap-2 text-[11px] font-fredoka bg-luncharoo-yellow/20 rounded-lg px-2 py-1.5"
-                      >
-                        <FoodIcon name={getFoodIcon(snack.name) ?? 'apple'} size={18} className="flex-shrink-0" />
-                        <span className="font-bold text-luncharoo-dark min-w-[80px]">
-                          Snack
-                        </span>
-                        <span className="flex-1 text-luncharoo-dark/80">{snack.name}</span>
-                        <button
-                          onClick={() => handleFeedback(snack.component_id, 'favorite')}
-                          className={`flex-shrink-0 text-sm luncharoo-press ${
-                            feedback[snack.component_id] === 'favorite' ? 'text-luncharoo-coral' : 'text-slate-300'
-                          }`}
-                          aria-label="Favorite"
-                        >
-                          <UiIcon name={feedback[snack.component_id] === 'favorite' ? 'heart' : 'heart-o'} size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleFeedback(snack.component_id, 'dislike')}
-                          className={`flex-shrink-0 text-sm luncharoo-press ${
-                            feedback[snack.component_id] === 'dislike' ? 'text-slate-500' : 'text-slate-300'
-                          }`}
-                          aria-label="Hide"
-                        >
-                          <UiIcon name={feedback[snack.component_id] === 'dislike' ? 'yuk' : 'yuk-o'} size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleRegenerateSnack(day, snackIndex, slotKey)}
-                          disabled={isLoading}
-                          className="flex-shrink-0 px-2 py-1 rounded bg-luncharoo-coral/80 text-white hover:bg-luncharoo-coral disabled:opacity-50 font-bold text-xs"
-                        >
-                          {isLoading ? '⏳' : <UiIcon name="refresh" size={14} />}
-                        </button>
-                        {error && (
-                          <span className="text-[9px] text-red-600 flex-shrink-0">
-                            <UiIcon name="warning" size={12} />
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <LunchboxCard
+              key={day}
+              day={day}
+              dayPlan={dayPlan}
+              weekStartDate={plan.weekStartDate}
+              isPast={past}
+              editable
+              activeSlots={activeSlots}
+              feedback={feedback}
+              loadingIds={loadingIds}
+              errorIds={errorIds}
+              onFeedback={handleFeedback}
+              onRegenerateSlot={handleRegenerateSlot}
+              onRegenerateSnack={handleRegenerateSnack}
+              onRenameSlot={handleRenameSlot}
+            />
           );
         })}
       </div>
@@ -389,8 +267,8 @@ export default function PlanReviewPane({ plan, onClose }: Props) {
           {saving
             ? '⏳ Saving…'
             : isNewPlan
-              ? <><UiIcon name="check" size={16} className="mr-1" /> Approve Plan</>
-              : <><UiIcon name="save" size={16} className="mr-1" /> Save Changes</>}
+              ? '✅ Approve Plan'
+              : '💾 Save Changes'}
         </button>
       </div>
     </div>

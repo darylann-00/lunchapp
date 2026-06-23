@@ -45,9 +45,11 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen overlay. Day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Plan generates in the background and saves as `'draft'`; on completion the PlanReviewPane auto-opens.
 
-- **PlanReviewPane** (`src/components/PlanReviewPane.tsx`) — full-screen overlay showing the full week's plan for review/editing. Each day shows lunchbox slots (food icon + slot label + component name + favorite/hide feedback buttons + regenerate button) and snacks below. Food-specific icons are matched via `getFoodIcon()` from `src/lib/foodIconMap.ts`. Feedback writes to `component_feedback` and influences future plan generation. "Approve Plan" finalizes a draft.
+- **LunchboxCard** (`src/components/LunchboxCard.tsx`) — shared card component used by both LunchPlanTab and PlanReviewPane. Renders a single day's plan as a lunchbox-style 2-column grid: main item spans full width at top, sides fill grid cells, treat anchors the bottom, snacks in a tray below. Food-specific icons via `getFoodIcon()`. In edit mode, shows favorite/swap buttons per item and inline rename on tap. Groups combo items (shared `component_id`) to avoid duplicates.
 
-- **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan as lunchbox cards per day. Each card shows filled slots with food icon + component name, combo items combined. Snacks show food-specific icons matched by name. Draft plans show a "Review Plan" banner; finalized plans show an edit pencil. Empty state prompts the wizard.
+- **PlanReviewPane** (`src/components/PlanReviewPane.tsx`) — full-screen overlay for review/editing. Uses LunchboxCard in edit mode for each day. Feedback writes to `component_feedback` and influences future plan generation. Inline rename updates the draft. "Approve Plan" finalizes a draft.
+
+- **LunchPlanTab** (`src/components/LunchPlanTab.tsx`) — shows the active week's plan using LunchboxCard in read-only mode for each day. Draft plans show a "Review Plan" banner. Empty state prompts the wizard.
 
 - **GroceryTab** (`src/components/GroceryTab.tsx`) — generates a deduped grocery list for the current week's plan via `aggregateGroceryList` (pure function, no AI call — collects ingredients from plan components). Grouped by category with checkboxes.
 
