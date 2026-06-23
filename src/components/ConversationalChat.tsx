@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getAuthHeader } from '../lib/ai';
+import UiIcon from './UiIcon';
 
 const MAX_RECORDING_SECONDS = 120;
 
@@ -179,7 +180,7 @@ export default function ConversationalChat({
                 title={recordingState === 'recording' ? 'Stop recording' : 'Start recording'}
                 style={{ background: recordingState === 'recording' ? '#fee2e2' : undefined }}
               >
-                {recordingState === 'recording' ? '⏹' : '🎤'}
+                {recordingState === 'recording' ? '⏹' : <UiIcon name="mic" size={16} />}
               </button>
               {recordingState === 'recording' && (() => {
                 const remaining = MAX_RECORDING_SECONDS - recordingSeconds;

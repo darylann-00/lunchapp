@@ -4,6 +4,7 @@ import { useAI } from '../hooks/useAI';
 import type { GroceryItem } from '../types';
 import { getMondayISO, addWeeks, formatWeekRange } from '../lib/dateUtils';
 import FoodIcon from './FoodIcon';
+import UiIcon from './UiIcon';
 
 const CATEGORY_ICON: Partial<Record<GroceryItem['category'], string>> = {
   produce: 'arugula',
@@ -22,10 +23,10 @@ const CATEGORY_TEXT: Record<GroceryItem['category'], string> = {
   other: 'Other',
 };
 
-const CATEGORY_EMOJI: Partial<Record<GroceryItem['category'], string>> = {
-  packaged: '📦',
-  condiments: '🫙',
-  other: '🛒',
+const CATEGORY_UI_ICON: Partial<Record<GroceryItem['category'], string>> = {
+  packaged: 'box',
+  condiments: 'jar',
+  other: 'basket',
 };
 
 const CATEGORY_LABELS_TEXT: Record<GroceryItem['category'], string> = {
@@ -74,7 +75,7 @@ export default function GroceryTab({ showToast }: Props) {
     const list = await generateGrocery.call(plan);
     if (list) {
       setGroceryList(plan.id, list);
-      showToast('✨ Grocery list generated!');
+      showToast('Grocery list generated!');
     }
   };
 
@@ -93,7 +94,7 @@ export default function GroceryTab({ showToast }: Props) {
       });
       text += '\n';
     }
-    navigator.clipboard.writeText(text).then(() => showToast('📋 Copied to clipboard!'));
+    navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'));
   };
 
   const weekOptions = useMemo(() => {
@@ -111,7 +112,7 @@ export default function GroceryTab({ showToast }: Props) {
       {/* Date range selector */}
       <div className="bg-white luncharoo-border rounded-2xl luncharoo-shadow-sm p-3">
         <h3 className="font-fredoka text-sm font-bold text-luncharoo-dark mb-2 flex items-center gap-1.5">
-          📅 Select Date Range
+          <UiIcon name="calendar" size={16} /> Select Date Range
         </h3>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
@@ -151,7 +152,7 @@ export default function GroceryTab({ showToast }: Props) {
 
       {selectedPlans.length === 0 ? (
         <div className="bg-luncharoo-beige luncharoo-border rounded-2xl p-6 text-center">
-          <p className="text-2xl mb-2">🛒</p>
+          <div className="mb-2 flex justify-center"><UiIcon name="basket" size={40} /></div>
           <p className="font-fredoka text-sm text-luncharoo-dark font-bold">No plans in this range</p>
           <p className="text-xs text-slate-500 mt-1">Generate a lunch plan first, then come back here.</p>
         </div>
@@ -159,7 +160,7 @@ export default function GroceryTab({ showToast }: Props) {
         <div className="bg-white luncharoo-border rounded-2xl luncharoo-shadow overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b-2 border-luncharoo-dark/10">
             <h3 className="font-fredoka text-sm font-bold text-luncharoo-dark flex items-center gap-1.5">
-              🧺 Groceries
+              <UiIcon name="basket" size={16} /> Groceries
             </h3>
             <div className="flex gap-1.5">
               {selectedPlans.length === 1 && selectedPlans[0].status === 'final' && !groceryList && (
@@ -168,7 +169,7 @@ export default function GroceryTab({ showToast }: Props) {
                   disabled={generateGrocery.loading}
                   className="bg-luncharoo-blue text-white font-fredoka text-xs px-2 py-1 rounded-lg luncharoo-border luncharoo-shadow-sm luncharoo-press disabled:opacity-50 font-bold"
                 >
-                  {generateGrocery.loading ? '...' : '✨ Generate'}
+                  {generateGrocery.loading ? '...' : <><UiIcon name="sparkle" size={14} className="mr-1" />Generate</>}
                 </button>
               )}
               {groceryList && (
@@ -176,7 +177,7 @@ export default function GroceryTab({ showToast }: Props) {
                   onClick={copyToClipboard}
                   className="bg-luncharoo-beige text-luncharoo-dark font-fredoka text-xs px-2 py-1 rounded-lg border border-luncharoo-dark luncharoo-press font-bold"
                 >
-                  📋 Copy
+                  Copy
                 </button>
               )}
             </div>
@@ -204,7 +205,9 @@ export default function GroceryTab({ showToast }: Props) {
                   <h4 className="font-fredoka text-xs font-bold text-luncharoo-coral mb-1.5 flex items-center gap-1">
                     {CATEGORY_ICON[cat as GroceryItem['category']]
                       ? <FoodIcon name={CATEGORY_ICON[cat as GroceryItem['category']]!} size={14} />
-                      : CATEGORY_EMOJI[cat as GroceryItem['category']] ?? null}
+                      : CATEGORY_UI_ICON[cat as GroceryItem['category']]
+                        ? <UiIcon name={CATEGORY_UI_ICON[cat as GroceryItem['category']]!} size={14} />
+                        : null}
                     {CATEGORY_TEXT[cat as GroceryItem['category']] ?? cat}
                   </h4>
                   <div className="space-y-1">

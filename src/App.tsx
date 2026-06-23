@@ -14,15 +14,16 @@ import PlanReviewPane from './components/PlanReviewPane';
 import RecipeBrowsePane from './components/RecipeBrowsePane';
 import { getDefaultWeekMonday, addWeeks, formatWeekRange, weekRelativeLabel } from './lib/dateUtils';
 import FoodIcon from './components/FoodIcon';
+import UiIcon from './components/UiIcon';
 import './index.css';
 
 type Tab = 'lunch' | 'grocery' | 'browse' | 'profile';
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   lunch: <FoodIcon name="sandwich" size={20} />,
-  grocery: <span>📋</span>,
-  browse: <span>🍴</span>,
-  profile: <span>🥷</span>,
+  grocery: <UiIcon name="basket" size={20} />,
+  browse: <UiIcon name="utensils" size={20} />,
+  profile: <UiIcon name="kid" size={20} />,
 };
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -65,7 +66,7 @@ function BentoShell() {
   useEffect(() => {
     if (prevActive.current && !backgroundGen.active) {
       if (backgroundGen.error) {
-        const msg = `⚠️ ${backgroundGen.error}`;
+        const msg = backgroundGen.error;
         clearBackgroundGenError();
         setTimeout(() => showToast(msg), 0);
       } else {
@@ -88,7 +89,7 @@ function BentoShell() {
 
         {/* Announcement strip */}
         <div className="bg-luncharoo-coral text-white font-fredoka font-bold text-xs py-1.5 px-3 text-center tracking-wider border-b-2 border-luncharoo-dark relative z-30 select-none">
-          🌈 AI LUNCH BOX ASSISTANT FOR KIDS
+          <UiIcon name="rainbow" size={14} className="mr-1" /> AI LUNCH BOX ASSISTANT FOR KIDS
         </div>
 
         {/* Header */}
@@ -112,7 +113,7 @@ function BentoShell() {
                 </h1>
                 {kid && (
                   <span className="text-xs font-fredoka text-luncharoo-dark bg-white/95 px-2 py-0.5 rounded-full inline-block font-semibold">
-                    👧 {kid.name}
+                    <UiIcon name="kid" size={14} className="mr-1" /> {kid.name}
                   </span>
                 )}
               </div>
@@ -150,7 +151,7 @@ function BentoShell() {
         {/* Storage error banner */}
         {storageError && (
           <div className="bg-red-100 border-b-2 border-red-400 px-4 py-2 text-xs text-red-700 font-semibold z-20">
-            ⚠️ {storageError}
+            <UiIcon name="warning" size={14} className="mr-1" /> {storageError}
           </div>
         )}
 
@@ -184,7 +185,7 @@ function BentoShell() {
               <ProfileTab
                 kid={kid}
                 prefs={prefs}
-                onSaved={() => showToast('✅ Profile saved!')}
+                onSaved={() => showToast('Profile saved!')}
               />
             )}
           </div>
@@ -225,7 +226,7 @@ function BentoShell() {
             plan={activePlan}
             onClose={() => {
               setReviewOpen(false);
-              showToast('✅ Plan saved!');
+              showToast('Plan saved!');
             }}
           />
         )}

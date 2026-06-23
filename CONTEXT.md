@@ -41,7 +41,7 @@ No Next.js. No shadcn. No localStorage (removed in favor of Supabase).
 
 - **Onboarding** (`src/pages/Onboarding.tsx`) — multi-step form collecting kid profile (name, age, allergies, dislikes, likes, repetition preference, snack config, dietary flags, school rules) and parent prefs (lunchbox slot picker with protein always on, thermos toggle, snack toggle). Protected by `RequireAuth`. Redirected to from `RequireKid` guard when no kid exists.
 
-- **BentoShell** (`src/App.tsx`) — four-tab shell (Lunch Plan / Grocery / Browse / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). Custom PNG food icons for food-related visuals, emoji icons for non-food UI (📋 🍴 🥷) in the bottom nav. The Browse tab renders `ComponentBrowser` in its own full-height container so its filter bar stays fixed.
+- **BentoShell** (`src/App.tsx`) — four-tab shell (Lunch Plan / Grocery / Browse / Profile) inside a fixed 390px-wide card with the luncharoo visual theme. Week navigation arrows in the header (Lunch tab only). Custom PNG food icons (`FoodIcon`) for food-related visuals; hand-drawn SVG sticker icons (`UiIcon`, `src/components/UiIcon.tsx`) for all non-food UI — nav, wizard, grocery containers, profile/kid, and state indicators. The Browse tab renders `ComponentBrowser` in its own full-height container so its filter bar stays fixed.
 
 - **WizardOverlay** (`src/components/WizardOverlay.tsx`) — full-screen overlay. Day chip selector (Mon–Fri) + chat-style notes input + quick-add stickers → "Generate Plan". Plan generates in the background and saves as `'draft'`; on completion the PlanReviewPane auto-opens.
 
