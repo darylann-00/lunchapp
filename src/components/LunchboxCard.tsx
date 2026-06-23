@@ -122,7 +122,8 @@ function SlotItem({
     <div
       className={`flex items-center gap-2 px-2.5 py-2 ${
         isMain ? 'col-span-2 border-b-[1.5px] border-luncharoo-dark/8' : ''
-      } ${isTreat ? 'col-span-2 border-t-[1.5px] border-dashed border-luncharoo-dark/10' : ''}`}
+      } ${isTreat ? 'col-span-2 border-t-[1.5px] border-dashed border-luncharoo-dark/10' : ''
+      } ${!isMain && !isTreat ? 'border-b border-luncharoo-dark/5' : ''}`}
     >
       <div className="w-[30px] h-[30px] rounded-[10px] flex items-center justify-center flex-shrink-0 bg-white border-[1.5px] border-luncharoo-dark/10">
         <FoodIcon name={iconName} size={20} />
@@ -254,8 +255,8 @@ export default function LunchboxCard({
         <div className="flex-1" />
       </div>
 
-      {/* Lunchbox grid */}
-      <div className="grid grid-cols-2">
+      {/* Lunchbox grid — 2 columns read-only, single column in edit mode */}
+      <div className={`grid ${editable ? 'grid-cols-1' : 'grid-cols-2'}`}>
         {/* Main items */}
         {mainItems.map((item) => {
           const slotKey = `${day}-lunchbox-${item.slotCategories[0]}`;
